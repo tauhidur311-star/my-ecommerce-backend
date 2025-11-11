@@ -4,22 +4,58 @@ const crypto = require('crypto');
 // Email service for sending notifications and verification emails
 class EmailService {
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: process.env.SMTP_PORT || 587,
-      secure: false,
+    // Configure transporter based on environment variables
+    const emailConfig = {
+      host: process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.mailtrap.io',
+      port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587'),
+      secure: false, // Use TLS
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: process.env.SMTP_USER || process.env.EMAIL_USER,
+        pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
       },
-    });
+    };
+
+    // Special configuration for Mailjet
+    if (emailConfig.host === 'in-v3.mailjet.com') {
+      console.log('📧 Using Mailjet SMTP configuration');
+      emailConfig.auth = {
+        user: process.env.MAILJET_API_KEY || process.env.SMTP_USER,
+        pass: process.env.MAILJET_SECRET_KEY || process.env.SMTP_PASS,
+      };
+    }
+
+    // Special configuration for Gmail
+    if (emailConfig.host === 'smtp.gmail.com') {
+      console.log('📧 Using Gmail SMTP configuration');
+      emailConfig.secure = false; // Use STARTTLS
+      emailConfig.requireTLS = true;
+    }
+
+    console.log(`📧 Email service configured with host: ${emailConfig.host}:${emailConfig.port}`);
+
+    this.transporter = nodemailer.createTransport(emailConfig);
+    
+    // Verify the connection on startup
+    this.verifyConnection();
+  }
+
+  async verifyConnection() {
+    try {
+      await this.transporter.verify();
+      console.log('✅ Email service connection verified successfully');
+    } catch (error) {
+      console.error('❌ Email service connection failed:', error.message);
+    }
   }
 
   async sendVerificationEmail(user, verificationToken) {
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}&email=${user.email}`;
     
+    const fromEmail = process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@yourdomain.com';
+    const fromName = process.env.FROM_NAME || process.env.APP_NAME || 'Your Store';
+    
     const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
+      from: `${fromName} <${fromEmail}>`,
       to: user.email,
       subject: 'Verify Your Email Address',
       html: `
@@ -53,8 +89,11 @@ class EmailService {
   async sendPasswordResetEmail(user, resetToken) {
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&email=${user.email}`;
     
+    const fromEmail = process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@yourdomain.com';
+    const fromName = process.env.FROM_NAME || process.env.APP_NAME || 'Your Store';
+    
     const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
+      from: `${fromName} <${fromEmail}>`,
       to: user.email,
       subject: 'Reset Your Password',
       html: `
@@ -86,8 +125,11 @@ class EmailService {
   }
 
   async sendTwoFactorCode(user, code) {
+    const fromEmail = process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@yourdomain.com';
+    const fromName = process.env.FROM_NAME || process.env.APP_NAME || 'Your Store';
+    
     const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
+      from: `${fromName} <${fromEmail}>`,
       to: user.email,
       subject: 'Your Two-Factor Authentication Code',
       html: `
@@ -116,8 +158,11 @@ class EmailService {
   }
 
   async sendOrderConfirmation(user, order) {
+    const fromEmail = process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@yourdomain.com';
+    const fromName = process.env.FROM_NAME || process.env.APP_NAME || 'Your Store';
+    
     const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
+      from: `${fromName} <${fromEmail}>`,
       to: user.email,
       subject: `Order Confirmation - Order #${order._id.toString().slice(-8)}`,
       html: `
