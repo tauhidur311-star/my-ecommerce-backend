@@ -632,7 +632,15 @@ router.post('/change-password', require('../middleware/auth').auth, async (req, 
     }
 
     const user = await User.findById(req.user.userId);
-    if (!user || !user.password) {
+    if (!user) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'User not found' 
+      });
+    }
+
+    // Check if this is a social login account
+    if (user.authProvider === 'google' || user.googleId || !user.password) {
       return res.status(400).json({ 
         success: false, 
         error: 'User not found or account uses social login' 
@@ -723,6 +731,77 @@ router.post('/validate-session', require('../middleware/auth').auth, async (req,
     });
   }
 });
+
+// Get active sessions endpoint
+router.get('/active-sessions', require('../middleware/auth').auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const currentIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+    
+    // Find user
+    const user = await User.findById(userId).select('lastLoginAt lastLoginIP refreshTokens');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Create session data based on stored info
+    const sessions = [];
+    
+    // Current session
+    const currentSession = {
+      id: 'current-session',
+      deviceInfo: req.get('User-Agent')?.includes('Mobile') ? 'Mobile Device' : 'Desktop Computer',
+      browser: getBrowserFromUserAgent(req.get('User-Agent') || ''),
+      ipAddress: currentIP,
+      location: 'Current Location', // Can be enhanced with IP geolocation
+      lastActivity: new Date().toISOString(),
+      isCurrent: true,
+      createdAt: user.lastLoginAt || new Date().toISOString()
+    };
+    sessions.push(currentSession);
+
+    // Add additional sessions based on refresh tokens (simplified)
+    if (user.refreshTokens && user.refreshTokens.length > 1) {
+      user.refreshTokens.slice(0, -1).forEach((token, index) => {
+        sessions.push({
+          id: `session-${index}`,
+          deviceInfo: 'Unknown Device',
+          browser: 'Unknown Browser',
+          ipAddress: user.lastLoginIP || 'Unknown IP',
+          location: 'Unknown Location',
+          lastActivity: user.lastLoginAt || new Date().toISOString(),
+          isCurrent: false,
+          createdAt: user.lastLoginAt || new Date().toISOString()
+        });
+      });
+    }
+
+    res.json({
+      success: true,
+      sessions: sessions
+    });
+
+  } catch (error) {
+    console.error('Error getting active sessions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get active sessions'
+    });
+  }
+});
+
+// Helper function to get browser from user agent
+function getBrowserFromUserAgent(userAgent) {
+  if (userAgent.includes('Chrome')) return 'Chrome';
+  if (userAgent.includes('Firefox')) return 'Firefox';
+  if (userAgent.includes('Safari')) return 'Safari';
+  if (userAgent.includes('Edge')) return 'Edge';
+  if (userAgent.includes('Opera')) return 'Opera';
+  return 'Unknown Browser';
+}
 
 // Terminate all sessions endpoint
 router.post('/terminate-all-sessions', require('../middleware/auth').auth, async (req, res) => {
