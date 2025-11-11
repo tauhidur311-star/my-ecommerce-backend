@@ -30,7 +30,22 @@ const generateTokens = (userId) => {
 
 // Email transporter setup
 const createEmailTransporter = () => {
-  if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+  // Check for new Mailjet SMTP configuration first
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    console.log('📧 Using Mailjet SMTP configuration for auth emails');
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+  }
+  // Fallback to old email configuration
+  else if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    console.log('📧 Using fallback email configuration');
     return nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
       port: process.env.EMAIL_PORT,
@@ -40,6 +55,7 @@ const createEmailTransporter = () => {
       }
     });
   }
+  console.log('❌ No email configuration found');
   return null;
 };
 
