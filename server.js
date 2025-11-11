@@ -127,7 +127,7 @@ app.use('/api/products', require('./routes/products'));
 // Category routes
 app.use('/api/categories', require('./routes/categories'));
 
-// Order routes
+// Order routes (includes basic order management)
 app.use('/api/orders', require('./routes/orders'));
 
 // Wishlist routes
@@ -160,8 +160,8 @@ app.use('/api/auth/2fa', require('./routes/twoFactorAuth'));
 // Review routes
 app.use('/api/reviews', require('./routes/reviews'));
 
-// Order tracking routes
-app.use('/api/orders', require('./routes/orderTracking'));
+// Email verification routes
+app.use('/api/auth', require('./routes/emailVerification'));
 
 app.get('/api/health', (req, res) => {
   res.json({

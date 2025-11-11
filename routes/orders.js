@@ -10,7 +10,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const { status, limit = 20, page = 1, search } = req.query;
     
-    let query = { userId: req.user.id };
+    let query = { userId: req.user.userId };
     
     if (status && status !== 'all') {
       query.orderStatus = status;
@@ -33,7 +33,7 @@ router.get('/', auth, async (req, res) => {
     const total = await Order.countDocuments(query);
 
     // Get order statistics
-    const stats = await Order.getOrderStats(req.user.id);
+    const stats = await Order.getOrderStats(req.user.userId);
 
     res.json({
       success: true,
@@ -67,7 +67,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const order = await Order.findOne({
       _id: req.params.id,
-      userId: req.user.id
+      userId: req.user.userId
     }).populate('items.productId', 'name images category');
 
     if (!order) {
@@ -226,7 +226,7 @@ router.post('/', auth, validate(require('../utils/validation').schemas.order), a
 
     // Create order
     const order = new Order({
-      userId: req.user.id,
+      userId: req.user.userId,
       items: orderItems,
       subtotal,
       shippingCost,
@@ -295,7 +295,7 @@ router.put('/:id/status', auth, async (req, res) => {
     if (trackingNumber) order.trackingNumber = trackingNumber;
     if (courierService) order.courierService = courierService;
 
-    await order.updateStatus(status, description, location, req.user.id);
+    await order.updateStatus(status, description, location, req.user.userId);
 
     res.json({
       success: true,
@@ -319,7 +319,7 @@ router.put('/:id/cancel', auth, async (req, res) => {
 
     const order = await Order.findOne({
       _id: req.params.id,
-      userId: req.user.id
+      userId: req.user.userId
     });
 
     if (!order) {
@@ -348,7 +348,7 @@ router.put('/:id/cancel', auth, async (req, res) => {
 
     // Update order status
     order.cancellationReason = cancellationReason;
-    await order.updateStatus('cancelled', `Order cancelled: ${cancellationReason}`, '', req.user.id);
+    await order.updateStatus('cancelled', `Order cancelled: ${cancellationReason}`, '', req.user.userId);
 
     res.json({
       success: true,
@@ -372,7 +372,7 @@ router.put('/:id/return', auth, async (req, res) => {
 
     const order = await Order.findOne({
       _id: req.params.id,
-      userId: req.user.id
+      userId: req.user.userId
     });
 
     if (!order) {
@@ -390,7 +390,7 @@ router.put('/:id/return', auth, async (req, res) => {
     }
 
     order.returnReason = returnReason;
-    await order.updateStatus('returned', `Return requested: ${returnReason}`, '', req.user.id);
+    await order.updateStatus('returned', `Return requested: ${returnReason}`, '', req.user.userId);
 
     res.json({
       success: true,
@@ -421,7 +421,7 @@ router.put('/:id/review', auth, async (req, res) => {
 
     const order = await Order.findOne({
       _id: req.params.id,
-      userId: req.user.id
+      userId: req.user.userId
     });
 
     if (!order) {
@@ -462,7 +462,7 @@ router.get('/recent/list', auth, async (req, res) => {
   try {
     const { limit = 5 } = req.query;
     
-    const orders = await Order.getRecentOrders(req.user.id, parseInt(limit));
+    const orders = await Order.getRecentOrders(req.user.userId, parseInt(limit));
     
     res.json({
       success: true,
@@ -485,7 +485,7 @@ router.get('/recent/list', auth, async (req, res) => {
 // Get order statistics
 router.get('/stats/overview', auth, async (req, res) => {
   try {
-    const stats = await Order.getOrderStats(req.user.id);
+    const stats = await Order.getOrderStats(req.user.userId);
     const monthlyStats = await Order.getMonthlyStats();
     
     res.json({
@@ -501,6 +501,247 @@ router.get('/stats/overview', auth, async (req, res) => {
       success: false,
       message: 'Failed to fetch order statistics',
       error: error.message
+    });
+  }
+});
+
+// Get single order with tracking information
+router.get('/:orderId', auth, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // Find order and populate product information
+    const order = await Order.findOne({
+      _id: orderId,
+      userId: req.user.userId
+    }).populate('items.productId', 'name images price');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    // Add tracking information if available
+    const orderWithTracking = {
+      ...order.toObject(),
+      tracking: {
+        trackingNumber: order.trackingNumber,
+        carrier: order.carrier || order.courierService,
+        updates: order.trackingHistory || order.trackingUpdates || [],
+        estimatedDelivery: order.estimatedDelivery
+      }
+    };
+
+    res.json({
+      success: true,
+      data: orderWithTracking
+    });
+  } catch (error) {
+    console.error('Get order tracking error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get order tracking information'
+    });
+  }
+});
+
+// Update order tracking (Admin only)
+router.put('/:orderId/tracking', require('../middleware/adminAuth').adminAuth, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { 
+      status, 
+      trackingNumber, 
+      carrier, 
+      estimatedDelivery, 
+      location, 
+      message 
+    } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    // Update order status if provided
+    if (status) {
+      order.orderStatus = status;
+    }
+
+    // Update tracking information
+    if (trackingNumber) order.trackingNumber = trackingNumber;
+    if (carrier) order.courierService = carrier;
+    if (estimatedDelivery) order.estimatedDelivery = new Date(estimatedDelivery);
+
+    // Add tracking update
+    if (status || message || location) {
+      const update = {
+        status: status || order.orderStatus,
+        timestamp: new Date(),
+        location: location || '',
+        description: message || `Order ${status || 'updated'}`
+      };
+
+      if (!order.trackingHistory) {
+        order.trackingHistory = [];
+      }
+      order.trackingHistory.push(update);
+    }
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: 'Order tracking updated successfully',
+      data: order
+    });
+  } catch (error) {
+    console.error('Update order tracking error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update order tracking'
+    });
+  }
+});
+
+// Cancel order
+router.post('/:orderId/cancel', auth, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason = 'Customer request' } = req.body;
+
+    const order = await Order.findOne({
+      _id: orderId,
+      userId: req.user.userId
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    // Check if order can be cancelled
+    const cancellableStatuses = ['pending', 'confirmed', 'processing'];
+    if (!cancellableStatuses.includes(order.orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Order cannot be cancelled at this stage'
+      });
+    }
+
+    // Update order status
+    order.orderStatus = 'cancelled';
+    order.cancellationReason = reason;
+
+    // Add tracking update
+    if (!order.trackingHistory) {
+      order.trackingHistory = [];
+    }
+    order.trackingHistory.push({
+      status: 'cancelled',
+      timestamp: new Date(),
+      description: `Order cancelled: ${reason}`
+    });
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: 'Order cancelled successfully',
+      data: order
+    });
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to cancel order'
+    });
+  }
+});
+
+// Request return/refund
+router.post('/:orderId/return', auth, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { items = [], reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({
+        success: false,
+        error: 'Return reason is required'
+      });
+    }
+
+    const order = await Order.findOne({
+      _id: orderId,
+      userId: req.user.userId
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    // Check if order is eligible for return
+    if (order.orderStatus !== 'delivered') {
+      return res.status(400).json({
+        success: false,
+        error: 'Only delivered orders can be returned'
+      });
+    }
+
+    // Check return window (30 days)
+    const deliveredDate = order.actualDelivery || order.updatedAt;
+    const returnWindow = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+    if (Date.now() - new Date(deliveredDate).getTime() > returnWindow) {
+      return res.status(400).json({
+        success: false,
+        error: 'Return window has expired (30 days)'
+      });
+    }
+
+    // Create return request
+    const returnRequest = {
+      orderId: order._id,
+      userId: req.user.userId,
+      items: items.length > 0 ? items : order.items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        reason: reason
+      })),
+      reason,
+      status: 'pending',
+      requestedAt: new Date()
+    };
+
+    // Update order with return request
+    order.returnRequest = returnRequest;
+    order.orderStatus = 'return_requested';
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: 'Return request submitted successfully',
+      data: {
+        order,
+        returnRequest
+      }
+    });
+  } catch (error) {
+    console.error('Request return error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to submit return request'
     });
   }
 });

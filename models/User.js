@@ -133,6 +133,23 @@ const userSchema = new mongoose.Schema({
       max: Number
     },
     brands: [String]
+  },
+  // Email verification fields
+  emailVerificationToken: {
+    type: String,
+    default: null
+  },
+  emailVerificationCode: {
+    type: String,
+    default: null
+  },
+  emailVerificationExpires: {
+    type: Date,
+    default: null
+  },
+  emailVerifiedAt: {
+    type: Date,
+    default: null
   }
 }, { 
   timestamps: true,

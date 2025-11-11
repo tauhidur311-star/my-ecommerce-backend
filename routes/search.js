@@ -255,35 +255,6 @@ router.get('/suggestions', async (req, res) => {
   }
 });
 
-// Popular searches
-router.get('/popular', async (req, res) => {
-  try {
-    // This would typically come from a search analytics collection
-    // For now, return some static popular searches
-    const popularSearches = [
-      { term: 'smartphone', count: 1250 },
-      { term: 't-shirt', count: 980 },
-      { term: 'laptop', count: 875 },
-      { term: 'headphones', count: 654 },
-      { term: 'sneakers', count: 543 },
-      { term: 'watch', count: 432 },
-      { term: 'camera', count: 321 },
-      { term: 'bluetooth speaker', count: 298 }
-    ];
-
-    res.json({
-      success: true,
-      data: popularSearches
-    });
-  } catch (error) {
-    console.error('Popular searches error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get popular searches'
-    });
-  }
-});
-
 // Get search filters/facets
 router.get('/filters', async (req, res) => {
   try {
@@ -459,6 +430,35 @@ router.post('/track', optionalAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to track search'
+    });
+  }
+});
+
+// Get popular searches
+router.get('/popular', async (req, res) => {
+  try {
+    // This could be implemented with a SearchHistory model
+    // For now, return static popular searches
+    const popularSearches = [
+      'casual shirt',
+      'formal wear',
+      'jeans',
+      'sneakers',
+      'accessories',
+      'winter wear',
+      'summer collection',
+      'ethnic wear'
+    ];
+
+    res.json({
+      success: true,
+      data: popularSearches
+    });
+  } catch (error) {
+    console.error('Popular searches error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get popular searches'
     });
   }
 });
