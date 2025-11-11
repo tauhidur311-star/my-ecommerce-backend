@@ -75,6 +75,18 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  lastLoginIP: {
+    type: String,
+    default: null
+  },
+  lastActivity: {
+    type: Date,
+    default: Date.now
+  },
+  tokenVersion: {
+    type: Number,
+    default: 0
   }
 }, { 
   timestamps: true,

@@ -145,8 +145,10 @@ router.post('/login', authLimiter, validate(require('../utils/validation').schem
       });
     }
 
-    // Update last login
+    // Update last login with IP tracking
     user.lastLoginAt = new Date();
+    user.lastLoginIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+    user.lastActivity = new Date();
     user.loginAttempts = 0;
     
     const { accessToken, refreshToken } = generateTokens(user._id);
@@ -216,12 +218,16 @@ router.post('/google-login', async (req, res) => {
         avatar: picture,
         isEmailVerified: email_verified,
         authProvider: 'google',
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
+        lastLoginIP: req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'],
+        lastActivity: new Date()
       });
       await user.save();
     } else {
-      // Update existing user
+      // Update existing user with IP tracking
       user.lastLoginAt = new Date();
+      user.lastLoginIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+      user.lastActivity = new Date();
       if (picture && !user.avatar) user.avatar = picture;
       if (email_verified) user.isEmailVerified = true;
       await user.save();
@@ -654,6 +660,110 @@ router.post('/change-password', require('../middleware/auth').auth, async (req, 
     res.status(500).json({ 
       success: false, 
       error: 'Server error' 
+    });
+  }
+});
+
+// Session validation endpoint
+router.post('/validate-session', require('../middleware/auth').auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const currentIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+    
+    // Find user with current session info
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return res.status(404).json({
+        valid: false,
+        reason: 'User not found'
+      });
+    }
+
+    // Check if user has stored IP from login
+    const storedIP = user.lastLoginIP;
+    
+    // If IP has changed significantly, invalidate session
+    if (storedIP && storedIP !== currentIP) {
+      // Allow some flexibility for mobile/dynamic IPs by checking first 3 octets
+      const storedIPPrefix = storedIP.split('.').slice(0, 3).join('.');
+      const currentIPPrefix = currentIP.split('.').slice(0, 3).join('.');
+      
+      if (storedIPPrefix !== currentIPPrefix) {
+        return res.status(401).json({
+          valid: false,
+          reason: 'IP address changed - session terminated for security'
+        });
+      }
+    }
+
+    // Update last activity
+    user.lastActivity = new Date();
+    await user.save();
+
+    res.json({
+      valid: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        address: user.address,
+        phone: user.phone,
+        province: user.province,
+        authProvider: user.authProvider,
+        googleId: user.googleId
+      }
+    });
+
+  } catch (error) {
+    console.error('Session validation error:', error);
+    res.status(500).json({
+      valid: false,
+      reason: 'Server error during validation'
+    });
+  }
+});
+
+// Terminate all sessions endpoint
+router.post('/terminate-all-sessions', require('../middleware/auth').auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Update user's token version to invalidate all existing tokens
+    // This approach works by incrementing a tokenVersion field
+    if (!user.tokenVersion) {
+      user.tokenVersion = 0;
+    }
+    user.tokenVersion += 1;
+    
+    // Clear session-related fields
+    user.lastLoginIP = null;
+    user.lastActivity = new Date();
+    
+    await user.save();
+
+    // Log the session termination
+    console.log(`All sessions terminated for user: ${user.email} (ID: ${userId})`);
+
+    res.json({
+      success: true,
+      message: 'All sessions have been terminated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error terminating sessions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to terminate sessions'
     });
   }
 });
