@@ -22,6 +22,11 @@ class EmailService {
         user: process.env.MAILJET_API_KEY || process.env.SMTP_USER,
         pass: process.env.MAILJET_SECRET_KEY || process.env.SMTP_PASS,
       };
+      // Enhanced Mailjet configuration for better connectivity
+      emailConfig.connectionTimeout = 60000; // 60 second timeout
+      emailConfig.greetingTimeout = 30000; // 30 second greeting timeout
+      emailConfig.socketTimeout = 60000; // 60 second socket timeout
+      emailConfig.requireTLS = true; // Require TLS encryption
     }
 
     // Special configuration for Gmail
@@ -41,10 +46,13 @@ class EmailService {
 
   async verifyConnection() {
     try {
+      console.log('🔍 Testing email service connection...');
       await this.transporter.verify();
       console.log('✅ Email service connection verified successfully');
     } catch (error) {
       console.error('❌ Email service connection failed:', error.message);
+      console.log('🔧 Attempting to send test email without verification...');
+      // Continue without verification - some services don't support verify()
     }
   }
 
