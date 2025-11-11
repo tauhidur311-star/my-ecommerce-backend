@@ -78,7 +78,6 @@ const productSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true
-    // Removed enum restriction to allow any category
   },
   subcategory: String,
   brand: String,
@@ -91,7 +90,7 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true
   }],
-  image: String, // Main image (for backward compatibility)
+  image: String,
   variants: [variantSchema],
   sizes: [String],
   colors: [String],
@@ -213,7 +212,7 @@ productSchema.index({ featured: -1, createdAt: -1 });
 productSchema.index({ bestseller: -1, salesCount: -1 });
 productSchema.index({ sku: 1 }, { unique: true });
 
-// Virtual for discount percentage
+// Virtual for discount percentage (safe - no conflict)
 productSchema.virtual('discountPercentage').get(function() {
   if (this.originalPrice && this.originalPrice > this.price) {
     return Math.round(((this.originalPrice - this.price) / this.originalPrice) * 100);
@@ -221,9 +220,7 @@ productSchema.virtual('discountPercentage').get(function() {
   return this.discount || 0;
 });
 
-// Note: averageRating is now a real field in the schema, not a virtual
-
-// Virtual for stock status
+// Virtual for stock status (safe - no conflict)
 productSchema.virtual('stockStatus').get(function() {
   if (this.stock <= 0) return 'out-of-stock';
   if (this.stock <= this.lowStockThreshold) return 'low-stock';
@@ -244,7 +241,7 @@ productSchema.pre('save', function(next) {
   if (this.reviews && this.reviews.length > 0) {
     const sum = this.reviews.reduce((acc, review) => acc + review.rating, 0);
     this.rating = Math.round((sum / this.reviews.length) * 10) / 10;
-    this.averageRating = this.rating; // Update averageRating field as well
+    this.averageRating = this.rating; // Update averageRating field
     this.reviewCount = this.reviews.length;
   }
   
