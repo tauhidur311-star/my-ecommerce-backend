@@ -31,11 +31,11 @@ const authLimiter = rateLimit({
 
 // Password reset limiter
 const passwordResetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // limit each IP to 3 password reset requests per hour
+  windowMs: 15 * 60 * 1000, // 15 minutes (reduced from 1 hour for testing)
+  max: 10, // limit each IP to 10 password reset requests per 15 minutes (increased for testing)
   message: {
     error: 'Too many password reset attempts, please try again later.',
-    retryAfter: '1 hour'
+    retryAfter: '15 minutes'
   }
 });
 
