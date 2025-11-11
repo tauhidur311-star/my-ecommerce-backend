@@ -87,6 +87,52 @@ const userSchema = new mongoose.Schema({
   tokenVersion: {
     type: Number,
     default: 0
+  },
+  // Two-Factor Authentication
+  twoFactorSecret: {
+    type: String,
+    default: null
+  },
+  twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+  twoFactorCode: {
+    type: String,
+    default: null
+  },
+  twoFactorExpires: {
+    type: Date,
+    default: null
+  },
+  // Account Security
+  securityQuestions: [{
+    question: String,
+    answer: String
+  }],
+  accountLocked: {
+    type: Boolean,
+    default: false
+  },
+  // Profile completion
+  profileCompleteness: {
+    type: Number,
+    default: 0
+  },
+  // Wishlist integration
+  wishlistItems: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
+  }],
+  // Shopping preferences
+  shoppingPreferences: {
+    favoriteCategories: [String],
+    sizePreference: String,
+    priceRange: {
+      min: Number,
+      max: Number
+    },
+    brands: [String]
   }
 }, { 
   timestamps: true,

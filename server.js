@@ -154,6 +154,15 @@ app.use('/api/notifications', require('./routes/notifications'));
 // Search routes
 app.use('/api/search', require('./routes/search'));
 
+// Two-Factor Authentication routes
+app.use('/api/auth/2fa', require('./routes/twoFactorAuth'));
+
+// Review routes
+app.use('/api/reviews', require('./routes/reviews'));
+
+// Order tracking routes
+app.use('/api/orders', require('./routes/orderTracking'));
+
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
