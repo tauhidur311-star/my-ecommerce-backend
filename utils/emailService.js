@@ -115,10 +115,29 @@ class EmailService {
     };
 
     try {
-      await this.transporter.sendMail(mailOptions);
-      return { success: true };
+      console.log(`📧 Attempting to send verification email to ${user.email}...`);
+      const result = await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Verification email sent successfully to ${user.email}`);
+      return { success: true, messageId: result.messageId };
     } catch (error) {
-      console.error('Email sending failed:', error);
+      console.error('Verification email sending failed:', error);
+      
+      // Fallback to REST API on timeout
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET') {
+        console.log('🔄 SMTP timeout detected, falling back to Mailjet REST API...');
+        try {
+          const apiResult = await this.sendViaMailjetAPI(
+            user.email,
+            'Verify Your Email Address',
+            mailOptions.html
+          );
+          console.log(`✅ Verification email sent via API to ${user.email}`);
+          return apiResult;
+        } catch (apiError) {
+          console.error('API fallback also failed:', apiError);
+        }
+      }
+      
       throw new Error('Failed to send verification email');
     }
   }
@@ -193,16 +212,19 @@ class EmailService {
     } catch (error) {
       console.error('2FA code email sending failed:', error);
       
-      // If it's a connection timeout, try creating a new transporter
+      // If it's a connection timeout, try Mailjet REST API as fallback
       if (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET') {
-        console.log('🔄 Connection timeout detected, attempting with fresh connection...');
+        console.log('🔄 SMTP timeout detected, falling back to Mailjet REST API...');
         try {
-          const freshTransporter = this.createFreshTransporter();
-          const retryResult = await freshTransporter.sendMail(mailOptions);
-          console.log(`✅ 2FA code email sent successfully on retry to ${user.email}`);
-          return { success: true, messageId: retryResult.messageId };
-        } catch (retryError) {
-          console.error('Retry also failed:', retryError);
+          const apiResult = await this.sendViaMailjetAPI(
+            user.email,
+            'Your Two-Factor Authentication Code',
+            mailOptions.html
+          );
+          console.log(`✅ 2FA code email sent via API to ${user.email}`);
+          return apiResult;
+        } catch (apiError) {
+          console.error('API fallback also failed:', apiError);
         }
       }
       
@@ -230,7 +252,73 @@ class EmailService {
     };
     
     const nodemailer = require('nodemailer');
-    return nodemailer.createTransporter(emailConfig);
+    return nodemailer.createTransport(emailConfig); // Fixed: was createTransporter, should be createTransport
+  }
+
+  // Fallback to Mailjet REST API when SMTP fails
+  async sendViaMailjetAPI(to, subject, htmlContent) {
+    try {
+      console.log('🔄 Attempting to send email via Mailjet REST API...');
+      
+      const https = require('https');
+      const apiKey = process.env.SMTP_USER;
+      const apiSecret = process.env.SMTP_PASS;
+      const fromEmail = process.env.FROM_EMAIL || 'noreply@yourdomain.com';
+      const fromName = process.env.FROM_NAME || 'Your Store';
+      
+      const postData = JSON.stringify({
+        Messages: [{
+          From: {
+            Email: fromEmail,
+            Name: fromName
+          },
+          To: [{
+            Email: to
+          }],
+          Subject: subject,
+          HTMLPart: htmlContent
+        }]
+      });
+
+      const options = {
+        hostname: 'api.mailjet.com',
+        port: 443,
+        path: '/v3.1/send',
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + Buffer.from(`${apiKey}:${apiSecret}`).toString('base64'),
+          'Content-Type': 'application/json',
+          'Content-Length': postData.length
+        }
+      };
+
+      return new Promise((resolve, reject) => {
+        const req = https.request(options, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              console.log('✅ Email sent successfully via Mailjet REST API');
+              resolve({ success: true, method: 'API' });
+            } else {
+              console.error('❌ Mailjet API error:', res.statusCode, data);
+              reject(new Error(`API Error: ${res.statusCode}`));
+            }
+          });
+        });
+
+        req.on('error', (error) => {
+          console.error('❌ Mailjet API request failed:', error);
+          reject(error);
+        });
+
+        req.write(postData);
+        req.end();
+      });
+    } catch (error) {
+      console.error('❌ Mailjet API fallback failed:', error);
+      throw error;
+    }
   }
 
   async sendOrderConfirmation(user, order) {
@@ -334,10 +422,29 @@ class EmailService {
     };
 
     try {
-      await this.transporter.sendMail(mailOptions);
-      return { success: true };
+      console.log(`📧 Attempting to send verification code to ${user.email}...`);
+      const result = await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Verification code email sent successfully to ${user.email}`);
+      return { success: true, messageId: result.messageId };
     } catch (error) {
       console.error('Verification code email sending failed:', error);
+      
+      // Fallback to REST API on timeout
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET') {
+        console.log('🔄 SMTP timeout detected, falling back to Mailjet REST API...');
+        try {
+          const apiResult = await this.sendViaMailjetAPI(
+            user.email,
+            'Email Verification Code',
+            mailOptions.html
+          );
+          console.log(`✅ Verification code email sent via API to ${user.email}`);
+          return apiResult;
+        } catch (apiError) {
+          console.error('API fallback also failed:', apiError);
+        }
+      }
+      
       throw new Error('Failed to send verification code');
     }
   }
