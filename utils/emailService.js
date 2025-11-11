@@ -22,11 +22,20 @@ class EmailService {
         user: process.env.MAILJET_API_KEY || process.env.SMTP_USER,
         pass: process.env.MAILJET_SECRET_KEY || process.env.SMTP_PASS,
       };
-      // Enhanced Mailjet configuration for better connectivity
-      emailConfig.connectionTimeout = 60000; // 60 second timeout
-      emailConfig.greetingTimeout = 30000; // 30 second greeting timeout
-      emailConfig.socketTimeout = 60000; // 60 second socket timeout
+      // Enhanced Mailjet configuration for production environments
+      emailConfig.connectionTimeout = 10000; // 10 second timeout (faster)
+      emailConfig.greetingTimeout = 5000; // 5 second greeting timeout
+      emailConfig.socketTimeout = 10000; // 10 second socket timeout
       emailConfig.requireTLS = true; // Require TLS encryption
+      emailConfig.secure = false; // Use STARTTLS
+      emailConfig.tls = {
+        ciphers: 'SSLv3',
+        rejectUnauthorized: false // Allow self-signed certificates in production
+      };
+      // Add pool configuration for better performance
+      emailConfig.pool = true;
+      emailConfig.maxConnections = 5;
+      emailConfig.maxMessages = 100;
     }
 
     // Special configuration for Gmail
@@ -47,11 +56,16 @@ class EmailService {
   async verifyConnection() {
     try {
       console.log('🔍 Testing email service connection...');
+      // Skip verification in production to avoid connection timeout issues
+      if (process.env.NODE_ENV === 'production') {
+        console.log('⏭️ Skipping email verification in production environment');
+        return;
+      }
       await this.transporter.verify();
       console.log('✅ Email service connection verified successfully');
     } catch (error) {
       console.error('❌ Email service connection failed:', error.message);
-      console.log('🔧 Attempting to send test email without verification...');
+      console.log('🔧 Continuing without verification - will attempt actual sending when needed...');
       // Continue without verification - some services don't support verify()
     }
   }
