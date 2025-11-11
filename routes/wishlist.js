@@ -9,7 +9,7 @@ router.get('/', auth, async (req, res) => {
     const wishlist = await Wishlist.findOrCreateByUserId(req.user.userId);
     res.json({
       success: true,
-      wishlist: {
+      data: {
         items: wishlist.items,
         itemCount: wishlist.items.length,
         itemIds: wishlist.getItemIds(),
@@ -26,8 +26,8 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Add item to wishlist
-router.post('/add', auth, async (req, res) => {
+// Add item to wishlist  
+router.post('/', auth, async (req, res) => {
   try {
     const { productId, productData } = req.body;
 
@@ -61,7 +61,7 @@ router.post('/add', auth, async (req, res) => {
 });
 
 // Remove item from wishlist
-router.delete('/remove/:productId', auth, async (req, res) => {
+router.delete('/:productId', auth, async (req, res) => {
   try {
     const { productId } = req.params;
 
