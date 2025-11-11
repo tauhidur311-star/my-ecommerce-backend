@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
-const nodemailer = require('nodemailer');
+const emailService = require('../utils/emailService');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { validate } = require('../utils/validation');
@@ -28,36 +28,7 @@ const generateTokens = (userId) => {
   return { accessToken, refreshToken };
 };
 
-// Email transporter setup
-const createEmailTransporter = () => {
-  // Check for new Mailjet SMTP configuration first
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    console.log('📧 Using Mailjet SMTP configuration for auth emails');
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-  }
-  // Fallback to old email configuration
-  else if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    console.log('📧 Using fallback email configuration');
-    return nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-  }
-  console.log('❌ No email configuration found');
-  return null;
-};
+// Use centralized email service
 
 // Register
 router.post('/register', authLimiter, validate(require('../utils/validation').schemas.register), async (req, res) => {
@@ -89,23 +60,11 @@ router.post('/register', authLimiter, validate(require('../utils/validation').sc
     });
     await user.save();
 
-    // Send verification email
-    const transporter = createEmailTransporter();
-    if (transporter) {
-      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${emailVerificationToken}`;
-      
-      await transporter.sendMail({
-        from: `"${process.env.APP_NAME || 'StyleShop'}" <${process.env.EMAIL_FROM}>`,
-        to: email,
-        subject: 'Verify Your Email Address',
-        html: `
-          <h2>Welcome to ${process.env.APP_NAME || 'StyleShop'}!</h2>
-          <p>Please verify your email address by clicking the link below:</p>
-          <a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;">Verify Email</a>
-          <p>This link will expire in 24 hours.</p>
-        `
-      });
-    } else {
+    // Send verification email using centralized service
+    try {
+      await emailService.sendVerificationEmail(user, emailVerificationToken);
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
       console.log(`📧 Email verification token for ${email}: ${emailVerificationToken}`);
     }
 
@@ -477,22 +436,10 @@ router.post('/resend-verification', async (req, res) => {
     user.emailVerificationToken = emailVerificationToken;
     await user.save();
 
-    const transporter = createEmailTransporter();
-    if (transporter) {
-      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${emailVerificationToken}`;
-      
-      await transporter.sendMail({
-        from: `"${process.env.APP_NAME || 'StyleShop'}" <${process.env.EMAIL_FROM}>`,
-        to: email,
-        subject: 'Verify Your Email Address',
-        html: `
-          <h2>Email Verification</h2>
-          <p>Please verify your email address by clicking the link below:</p>
-          <a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;">Verify Email</a>
-          <p>This link will expire in 24 hours.</p>
-        `
-      });
-    } else {
+    try {
+      await emailService.sendVerificationEmail(user, emailVerificationToken);
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
       console.log(`📧 Email verification token for ${email}: ${emailVerificationToken}`);
     }
 
@@ -528,20 +475,12 @@ router.post('/forgot-password', passwordResetLimiter, validate(require('../utils
 
     await user.save();
 
-    const transporter = createEmailTransporter();
-    if (transporter) {
-      await transporter.sendMail({
-        from: `"${process.env.FROM_NAME || process.env.APP_NAME || 'La Rosa Fashion'}" <${process.env.FROM_EMAIL || process.env.EMAIL_FROM}>`,
-        to: user.email,
-        subject: 'Password Reset OTP',
-        html: `
-          <h2>Password Reset Request</h2>
-          <p>Your password reset OTP is: <strong style="font-size: 24px; color: #007bff;">${otp}</strong></p>
-          <p>This OTP will expire in 10 minutes.</p>
-          <p>If you didn't request this, please ignore this email.</p>
-        `
-      });
-    } else {
+    try {
+      // Create a temporary user object for the email service
+      const tempUser = { email: user.email, name: user.name };
+      await emailService.sendTwoFactorCode(tempUser, otp);
+    } catch (emailError) {
+      console.error('Failed to send password reset OTP:', emailError);
       console.log(`🔐 OTP for ${user.email}: ${otp} (expires in 10 minutes)`);
     }
 

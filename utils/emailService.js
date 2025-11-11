@@ -240,6 +240,39 @@ class EmailService {
   generateTwoFactorCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
+
+  async sendVerificationCode(user, code) {
+    const fromEmail = process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@yourdomain.com';
+    const fromName = process.env.FROM_NAME || process.env.APP_NAME || 'Your Store';
+    
+    const mailOptions = {
+      from: `${fromName} <${fromEmail}>`,
+      to: user.email,
+      subject: 'Email Verification Code',
+      html: `
+        <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+          <h2 style="color: #333;">Email Verification</h2>
+          <p>Hello ${user.name},</p>
+          <p>Your email verification code is:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #333;">
+              ${code}
+            </div>
+          </div>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+        </div>
+      `,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      return { success: true };
+    } catch (error) {
+      console.error('Verification code email sending failed:', error);
+      throw new Error('Failed to send verification code');
+    }
+  }
 }
 
 module.exports = new EmailService();

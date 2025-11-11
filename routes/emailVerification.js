@@ -113,24 +113,9 @@ router.post('/resend-verification', async (req, res) => {
       </div>
     `;
 
-    // Use the email service to send the code
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransporter({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: process.env.SMTP_PORT || 587,
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
-      to: user.email,
-      subject: 'Email Verification Code',
-      html: emailHtml,
-    });
+    // Use the centralized email service
+    const tempUser = { email: user.email, name: user.name };
+    await emailService.sendVerificationCode(tempUser, verificationCode);
 
     res.json({
       success: true,
