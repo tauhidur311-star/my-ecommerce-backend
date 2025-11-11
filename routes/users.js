@@ -9,7 +9,7 @@ const { validate } = require('../utils/validation');
 // Get User Profile
 router.get('/profile', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password -refreshTokens');
+    const user = await User.findById(req.user.userId).select('-password -refreshTokens');
     if (!user) {
       return res.status(404).json({ 
         success: false, 

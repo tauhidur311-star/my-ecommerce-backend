@@ -6,7 +6,7 @@ const { auth } = require('../middleware/auth');
 // Get user's wishlist
 router.get('/', auth, async (req, res) => {
   try {
-    const wishlist = await Wishlist.findOrCreateByUserId(req.user._id);
+    const wishlist = await Wishlist.findOrCreateByUserId(req.user.userId);
     res.json({
       success: true,
       wishlist: {
@@ -38,7 +38,7 @@ router.post('/add', auth, async (req, res) => {
       });
     }
 
-    const wishlist = await Wishlist.findOrCreateByUserId(req.user._id);
+    const wishlist = await Wishlist.findOrCreateByUserId(req.user.userId);
     await wishlist.addItem(productId, productData);
 
     res.json({
@@ -65,7 +65,7 @@ router.delete('/remove/:productId', auth, async (req, res) => {
   try {
     const { productId } = req.params;
 
-    const wishlist = await Wishlist.findOrCreateByUserId(req.user._id);
+    const wishlist = await Wishlist.findOrCreateByUserId(req.user.userId);
     await wishlist.removeItem(productId);
 
     res.json({
@@ -90,7 +90,7 @@ router.delete('/remove/:productId', auth, async (req, res) => {
 // Clear entire wishlist
 router.delete('/clear', auth, async (req, res) => {
   try {
-    const wishlist = await Wishlist.findOrCreateByUserId(req.user._id);
+    const wishlist = await Wishlist.findOrCreateByUserId(req.user.userId);
     await wishlist.clearAll();
 
     res.json({
@@ -116,7 +116,7 @@ router.delete('/clear', auth, async (req, res) => {
 router.get('/check/:productId', auth, async (req, res) => {
   try {
     const { productId } = req.params;
-    const wishlist = await Wishlist.findOrCreateByUserId(req.user._id);
+    const wishlist = await Wishlist.findOrCreateByUserId(req.user.userId);
     
     const isInWishlist = wishlist.getItemIds().includes(productId);
     
@@ -147,7 +147,7 @@ router.post('/sync', auth, async (req, res) => {
       });
     }
 
-    const wishlist = await Wishlist.findOrCreateByUserId(req.user._id);
+    const wishlist = await Wishlist.findOrCreateByUserId(req.user.userId);
     
     // Clear existing items and add from local storage
     wishlist.items = [];
@@ -179,7 +179,7 @@ router.post('/sync', auth, async (req, res) => {
 // Get wishlist statistics
 router.get('/stats', auth, async (req, res) => {
   try {
-    const wishlist = await Wishlist.findOrCreateByUserId(req.user._id);
+    const wishlist = await Wishlist.findOrCreateByUserId(req.user.userId);
     
     const stats = {
       totalItems: wishlist.items.length,

@@ -17,7 +17,7 @@ router.get('/', auth, async (req, res) => {
     } = req.query;
 
     const filter = { 
-      userId: req.user._id,
+      userId: req.user.userId,
       isArchived: false
     };
     
