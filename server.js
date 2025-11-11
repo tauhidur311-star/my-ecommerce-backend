@@ -1,0 +1,256 @@
+// Load environment variables from .env file at the very beginning
+require('dotenv').config();
+
+console.log('🔍 Starting server...');
+console.log('📁 Current directory:', __dirname);
+console.log('🔑 MONGODB_URI check:', process.env.MONGODB_URI ? 'Found' : 'NOT FOUND');
+console.log('🔑 JWT_SECRET check:', process.env.JWT_SECRET ? 'Found' : 'NOT FOUND');
+console.log('🔑 GOOGLE_CLIENT_ID check:', process.env.GOOGLE_CLIENT_ID ? 'Found' : 'NOT FOUND');
+
+const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const { OAuth2Client } = require('google-auth-library');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
+
+// Import middleware
+const { apiLimiter, authLimiter, passwordResetLimiter } = require('./middleware/rateLimit');
+const sanitizeInput = require('./middleware/sanitize');
+const { validate } = require('./utils/validation');
+const errorHandler = require('./middleware/errorHandler');
+const connectDB = require('./config/database');
+
+const app = express();
+
+// Trust proxy setting - Required for proper IP detection behind reverse proxies (like Render, Heroku, etc.)
+app.set('trust proxy', 1);
+
+// Security Middleware
+app.use(helmet({
+  crossOriginEmbedderPolicy: false, // Allow embedding for payment gateways
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      scriptSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+}));
+
+// CORS configuration - Allow specific origins including your Vercel domain
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001', 
+      'https://my-ecommerce-frontend-phi.vercel.app',
+      'https://vercel.app'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // Allow all for now, but log blocked origins
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Requested-With', 'Accept']
+};
+
+app.use(cors(corsOptions));
+app.use(compression()); // Compress responses
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Security middleware
+app.use(...sanitizeInput);
+
+// Logging
+if (process.env.NODE_ENV !== 'production') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
+
+// Rate limiting
+app.use('/api', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgot-password', passwordResetLimiter);
+app.use('/api/auth/reset-password', passwordResetLimiter);
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// ============================================
+// MODELS
+// ============================================
+
+// Import models
+const User = require('./models/User');
+const Product = require('./models/Product');
+const Order = require('./models/Order');
+const Wishlist = require('./models/Wishlist');
+
+// Note: Authentication and user management routes have been moved to organized route modules
+// This improves code organization and maintainability
+
+
+// ============================================
+// ROUTES - USE ORGANIZED ROUTE MODULES
+// ============================================
+
+// Authentication routes
+app.use('/api/auth', require('./routes/auth'));
+
+// User routes
+app.use('/api/users', require('./routes/users'));
+
+// Product routes
+app.use('/api/products', require('./routes/products'));
+
+// Category routes
+app.use('/api/categories', require('./routes/categories'));
+
+// Order routes
+app.use('/api/orders', require('./routes/orders'));
+
+// Wishlist routes
+app.use('/api/wishlist', require('./routes/wishlist'));
+
+// Cart routes
+app.use('/api/cart', require('./routes/cart'));
+
+// Upload routes
+app.use('/api/upload', require('./routes/upload'));
+
+// Analytics routes
+app.use('/api/analytics', require('./routes/analytics'));
+
+// Payment routes
+app.use('/api/payments', require('./routes/payments'));
+
+// Admin routes
+app.use('/api/admin', require('./routes/admin'));
+
+// Notification routes
+app.use('/api/notifications', require('./routes/notifications'));
+
+// Search routes
+app.use('/api/search', require('./routes/search'));
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running',
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV,
+    version: '1.0.0'
+  });
+});
+
+// 404 handler for undefined routes
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `Route ${req.originalUrl} not found`
+  });
+});
+
+// Global error handler (must be last)
+app.use(errorHandler);
+
+// ============================================
+// SERVER STARTUP
+// ============================================
+
+const startServer = async () => {
+  try {
+    // Connect to database
+    await connectDB();
+    
+    const PORT = process.env.PORT || 5000;
+    
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📁 Environment: ${process.env.NODE_ENV}`);
+      console.log(`🌐 API Base URL: http://localhost:${PORT}/api`);
+      console.log(`💊 Health Check: http://localhost:${PORT}/api/health`);
+    });
+
+    // Initialize WebSocket server
+    const { initializeSocket } = require('./utils/socket');
+    initializeSocket(server);
+
+    // Cleanup expired notifications (run every hour)
+    const Notification = require('./models/Notification');
+    setInterval(async () => {
+      try {
+        const cleaned = await Notification.cleanupExpired();
+        if (cleaned > 0) {
+          console.log(`🧹 Cleaned up ${cleaned} expired notifications`);
+        }
+      } catch (error) {
+        console.error('Notification cleanup error:', error);
+      }
+    }, 60 * 60 * 1000); // 1 hour
+
+    // Cleanup abandoned carts (run daily)
+    const Cart = require('./models/Cart');
+    setInterval(async () => {
+      try {
+        const cleaned = await Cart.cleanupAbandonedCarts();
+        if (cleaned > 0) {
+          console.log(`🧹 Cleaned up ${cleaned} abandoned carts`);
+        }
+      } catch (error) {
+        console.error('Cart cleanup error:', error);
+      }
+    }, 24 * 60 * 60 * 1000); // 24 hours
+
+    // Graceful shutdown
+    const gracefulShutdown = (signal) => {
+      console.log(`\n📴 ${signal} received. Starting graceful shutdown...`);
+      
+      server.close(() => {
+        console.log('🔴 HTTP server closed.');
+      });
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('❌ Unhandled Rejection:', err);
+  process.exit(1);
+});
+
+// Start the server
+startServer();
