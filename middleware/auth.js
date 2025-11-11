@@ -13,12 +13,16 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('🔍 Auth Debug - Decoded token:', { userId: decoded.userId, email: decoded.email });
+    
     const user = await User.findById(decoded.userId).select('-password -refreshTokens');
+    console.log('🔍 Auth Debug - User lookup result:', user ? 'User found' : 'User NOT found');
 
     if (!user) {
+      console.error('❌ User not found in database for userId:', decoded.userId);
       return res.status(401).json({ 
         success: false, 
-        error: 'Invalid token. User not found.' 
+        error: 'User not found' 
       });
     }
 

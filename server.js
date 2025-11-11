@@ -53,7 +53,7 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:3001', 
       'https://my-ecommerce-frontend-phi.vercel.app',
-      'https://my-ecommerce-frontend-1osx.onrender.com',  // Updated Render frontend URL
+      'https://my-ecommerce-frontend-1osx.onrender.com',  // Current frontend URL
       'https://vercel.app'
     ];
     
