@@ -78,6 +78,9 @@ app.use(compression()); // Compress responses
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve static files (for Mailjet verification file)
+app.use(express.static('public'));
+
 // Security middleware
 app.use(...sanitizeInput);
 
