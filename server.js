@@ -176,6 +176,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Mailjet domain verification file
+app.get('/738e87164ff91be6c5e9400b1b2066af.txt', (req, res) => {
+  res.status(200).send('');
+});
+
 // 404 handler for undefined routes
 app.use('*', (req, res) => {
   res.status(404).json({
