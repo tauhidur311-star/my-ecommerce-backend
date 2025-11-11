@@ -27,8 +27,19 @@ const auth = async (req, res, next) => {
     }
 
     req.token = token;
-    req.user = user;
+    req.user = {
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      name: user.name
+    };
     req.userId = user._id; // For backward compatibility
+    
+    console.log('🔍 Auth Debug - Set req.user:', { 
+      userId: req.user.userId,
+      email: req.user.email,
+      role: req.user.role 
+    });
     next();
   } catch (error) {
     console.error('Auth error:', error);
@@ -70,7 +81,12 @@ const optionalAuth = async (req, res, next) => {
     const user = await User.findById(decoded.userId).select('-password -refreshTokens');
 
     req.token = token;
-    req.user = user;
+    req.user = user ? {
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      name: user.name
+    } : null;
     req.userId = user?._id;
     next();
   } catch (error) {
