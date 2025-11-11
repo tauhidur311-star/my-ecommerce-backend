@@ -221,14 +221,7 @@ productSchema.virtual('discountPercentage').get(function() {
   return this.discount || 0;
 });
 
-// Virtual for average rating
-productSchema.virtual('averageRating').get(function() {
-  if (this.reviews && this.reviews.length > 0) {
-    const sum = this.reviews.reduce((acc, review) => acc + review.rating, 0);
-    return Math.round((sum / this.reviews.length) * 10) / 10;
-  }
-  return this.rating || 0;
-});
+// Note: averageRating is now a real field in the schema, not a virtual
 
 // Virtual for stock status
 productSchema.virtual('stockStatus').get(function() {
@@ -251,6 +244,7 @@ productSchema.pre('save', function(next) {
   if (this.reviews && this.reviews.length > 0) {
     const sum = this.reviews.reduce((acc, review) => acc + review.rating, 0);
     this.rating = Math.round((sum / this.reviews.length) * 10) / 10;
+    this.averageRating = this.rating; // Update averageRating field as well
     this.reviewCount = this.reviews.length;
   }
   
