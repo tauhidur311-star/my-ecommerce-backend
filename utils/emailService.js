@@ -22,20 +22,35 @@ class EmailService {
         user: process.env.MAILJET_API_KEY || process.env.SMTP_USER,
         pass: process.env.MAILJET_SECRET_KEY || process.env.SMTP_PASS,
       };
-      // Enhanced Mailjet configuration for production environments
-      emailConfig.connectionTimeout = 10000; // 10 second timeout (faster)
-      emailConfig.greetingTimeout = 5000; // 5 second greeting timeout
-      emailConfig.socketTimeout = 10000; // 10 second socket timeout
-      emailConfig.requireTLS = true; // Require TLS encryption
-      emailConfig.secure = false; // Use STARTTLS
-      emailConfig.tls = {
-        ciphers: 'SSLv3',
-        rejectUnauthorized: false // Allow self-signed certificates in production
-      };
-      // Add pool configuration for better performance
-      emailConfig.pool = true;
-      emailConfig.maxConnections = 5;
-      emailConfig.maxMessages = 100;
+      
+      // Try alternative Mailjet SMTP settings for better compatibility
+      if (process.env.NODE_ENV === 'production') {
+        console.log('🔧 Using production-optimized Mailjet settings');
+        emailConfig.host = 'in-v3.mailjet.com';
+        emailConfig.port = 587;
+        emailConfig.secure = false; // Use STARTTLS
+        emailConfig.requireTLS = true;
+        emailConfig.connectionTimeout = 15000; // 15 second timeout
+        emailConfig.greetingTimeout = 10000; // 10 second greeting
+        emailConfig.socketTimeout = 15000; // 15 second socket timeout
+        emailConfig.tls = {
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2'
+        };
+        emailConfig.debug = false; // Disable debug in production
+        emailConfig.logger = false; // Disable logging
+      } else {
+        // Development settings
+        emailConfig.connectionTimeout = 10000;
+        emailConfig.greetingTimeout = 5000;
+        emailConfig.socketTimeout = 10000;
+        emailConfig.requireTLS = true;
+        emailConfig.secure = false;
+        emailConfig.tls = {
+          ciphers: 'SSLv3',
+          rejectUnauthorized: false
+        };
+      }
     }
 
     // Special configuration for Gmail
@@ -171,12 +186,51 @@ class EmailService {
     };
 
     try {
-      await this.transporter.sendMail(mailOptions);
-      return { success: true };
+      console.log(`📧 Attempting to send 2FA code to ${user.email}...`);
+      const result = await this.transporter.sendMail(mailOptions);
+      console.log(`✅ 2FA code email sent successfully to ${user.email}`);
+      return { success: true, messageId: result.messageId };
     } catch (error) {
       console.error('2FA code email sending failed:', error);
+      
+      // If it's a connection timeout, try creating a new transporter
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET') {
+        console.log('🔄 Connection timeout detected, attempting with fresh connection...');
+        try {
+          const freshTransporter = this.createFreshTransporter();
+          const retryResult = await freshTransporter.sendMail(mailOptions);
+          console.log(`✅ 2FA code email sent successfully on retry to ${user.email}`);
+          return { success: true, messageId: retryResult.messageId };
+        } catch (retryError) {
+          console.error('Retry also failed:', retryError);
+        }
+      }
+      
       throw new Error('Failed to send 2FA code');
     }
+  }
+
+  createFreshTransporter() {
+    const emailConfig = {
+      host: 'in-v3.mailjet.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      connectionTimeout: 20000, // 20 second timeout for retry
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
+      requireTLS: true,
+      tls: {
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2'
+      }
+    };
+    
+    const nodemailer = require('nodemailer');
+    return nodemailer.createTransporter(emailConfig);
   }
 
   async sendOrderConfirmation(user, order) {
