@@ -622,6 +622,13 @@ router.post('/reset-password', passwordResetLimiter, async (req, res) => {
 // Change Password (for logged-in users)
 router.post('/change-password', require('../middleware/auth').auth, async (req, res) => {
   try {
+    console.log('🔍 Change Password Debug - Request body:', { 
+      hasCurrentPassword: !!req.body.currentPassword,
+      hasNewPassword: !!req.body.newPassword,
+      bodyKeys: Object.keys(req.body),
+      userId: req.user?.userId 
+    });
+    
     const { currentPassword, newPassword } = req.body;
 
     if (!newPassword || newPassword.length < 6) {
@@ -632,7 +639,16 @@ router.post('/change-password', require('../middleware/auth').auth, async (req, 
     }
 
     const user = await User.findById(req.user.userId);
+    console.log('🔍 Change Password Debug - User lookup:', { 
+      userFound: !!user,
+      userId: req.user.userId,
+      userEmail: user?.email,
+      hasPassword: !!user?.password,
+      authProvider: user?.authProvider 
+    });
+    
     if (!user) {
+      console.error('❌ Change Password - User not found for ID:', req.user.userId);
       return res.status(400).json({ 
         success: false, 
         error: 'User not found' 
