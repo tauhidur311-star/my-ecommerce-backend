@@ -531,7 +531,7 @@ router.post('/forgot-password', passwordResetLimiter, validate(require('../utils
     const transporter = createEmailTransporter();
     if (transporter) {
       await transporter.sendMail({
-        from: `"${process.env.APP_NAME || 'StyleShop'}" <${process.env.EMAIL_FROM}>`,
+        from: `"${process.env.FROM_NAME || process.env.APP_NAME || 'La Rosa Fashion'}" <${process.env.FROM_EMAIL || process.env.EMAIL_FROM}>`,
         to: user.email,
         subject: 'Password Reset OTP',
         html: `
