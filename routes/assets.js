@@ -8,8 +8,8 @@ const {
   updateAsset,
   getFolders
 } = require('../controllers/assetController');
-const auth = require('../middleware/auth');
-const adminAuth = require('../middleware/adminAuth');
+const { auth } = require('../middleware/auth');
+const { adminAuth } = require('../middleware/adminAuth');
 
 // All asset routes require authentication and admin access
 router.use(auth);

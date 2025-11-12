@@ -11,8 +11,8 @@ const {
   exportTemplate,
   importTemplate
 } = require('../controllers/themeController');
-const auth = require('../middleware/auth');
-const adminAuth = require('../middleware/adminAuth');
+const { auth } = require('../middleware/auth');
+const { adminAuth } = require('../middleware/adminAuth');
 
 // All theme routes require authentication and admin access
 router.use(auth);

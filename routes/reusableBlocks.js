@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const ReusableBlock = require('../models/ReusableBlock');
-const auth = require('../middleware/auth');
-const adminAuth = require('../middleware/adminAuth');
+const { auth } = require('../middleware/auth');
+const { adminAuth } = require('../middleware/adminAuth');
 
 // All reusable block routes require authentication and admin access
 router.use(auth);
