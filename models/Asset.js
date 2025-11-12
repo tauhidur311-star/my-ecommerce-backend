@@ -21,7 +21,7 @@ const AssetSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'application/pdf']
+    enum: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'video/avi', 'application/pdf']
   },
   width: {
     type: Number,
@@ -45,6 +45,24 @@ const AssetSchema = new mongoose.Schema({
     default: 'general',
     trim: true
   },
+  // Enhanced storage and optimization support
+  versions: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  storageInfo: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
+  optimized: {
+    type: Boolean,
+    default: false
+  },
+  thumbnailUrl: {
+    type: String,
+    default: null
+  },
+  // Usage tracking
   uploadedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -61,6 +79,17 @@ const AssetSchema = new mongoose.Schema({
   usageCount: {
     type: Number,
     default: 0
+  },
+  // SEO and accessibility
+  seoTitle: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  seoDescription: {
+    type: String,
+    trim: true,
+    default: ''
   }
 });
 

@@ -1,7 +1,8 @@
 const Asset = require('../models/Asset');
+const imageOptimizer = require('../utils/imageOptimizer');
+const storageProvider = require('../utils/storageProvider');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs').promises;
 
 // Configure multer for file upload
 const storage = multer.diskStorage({

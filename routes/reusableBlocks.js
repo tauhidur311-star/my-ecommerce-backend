@@ -1,14 +1,39 @@
 const express = require('express');
 const router = express.Router();
-const ReusableBlock = require('../models/ReusableBlock');
+const {
+  getReusableBlocks,
+  createReusableBlock,
+  getReusableBlockById,
+  updateReusableBlock,
+  deleteReusableBlock,
+  incrementUsage,
+  getCategories,
+  getPopularTags,
+  createBlockFromSection
+} = require('../controllers/reusableBlockController');
 const { auth } = require('../middleware/auth');
 const { adminAuth } = require('../middleware/adminAuth');
 
-// All reusable block routes require authentication and admin access
+// All routes require authentication
 router.use(auth);
-router.use(adminAuth);
 
-// Get all reusable blocks
+// Public routes (any authenticated user)
+router.get('/', getReusableBlocks);
+router.get('/categories', getCategories);
+router.get('/tags', getPopularTags);
+router.get('/:id', getReusableBlockById);
+router.post('/:id/use', incrementUsage);
+
+// Admin-only routes
+router.use(adminAuth);
+router.post('/', createReusableBlock);
+router.post('/from-section', createBlockFromSection);
+router.put('/:id', updateReusableBlock);
+router.delete('/:id', deleteReusableBlock);
+
+module.exports = router;
+
+/* OLD CODE - REPLACED WITH CONTROLLERS
 router.get('/', async (req, res) => {
   try {
     const { category, search } = req.query;
