@@ -6,14 +6,22 @@ const getPublishedTheme = async (req, res) => {
   try {
     const { pageType, slug } = req.params;
     
-    // Find active theme
-    const activeTheme = await Theme.findOne({ isActive: true });
+    // Find active theme or use first available theme
+    let activeTheme = await Theme.findOne({ isActive: true });
     
     if (!activeTheme) {
-      return res.status(404).json({
-        success: false,
-        message: 'No active theme found'
-      });
+      // If no active theme, use the first theme and make it active
+      activeTheme = await Theme.findOne({});
+      if (activeTheme) {
+        activeTheme.isActive = true;
+        await activeTheme.save();
+        console.log('Auto-activated theme:', activeTheme.name);
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: 'No themes found in database'
+        });
+      }
     }
     
     // Build query based on page type

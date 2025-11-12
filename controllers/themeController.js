@@ -30,6 +30,7 @@ const createTheme = async (req, res) => {
     const theme = new Theme({
       name,
       description,
+      isActive: true, // Make new themes active by default
       createdBy: req.user.id
     });
     
