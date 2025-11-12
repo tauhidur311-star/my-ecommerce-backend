@@ -80,6 +80,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files (for Mailjet verification file)
 app.use(express.static('public'));
+// Serve uploaded assets
+app.use('/uploads', express.static('uploads'));
 
 // Security middleware
 app.use(...sanitizeInput);
@@ -165,6 +167,12 @@ app.use('/api/reviews', require('./routes/reviews'));
 
 // Email verification routes
 app.use('/api/auth', require('./routes/emailVerification'));
+
+// Theme system routes
+app.use('/api/admin/themes', require('./routes/theme'));
+app.use('/api/admin/assets', require('./routes/assets'));
+app.use('/api/admin/reusable-blocks', require('./routes/reusableBlocks'));
+app.use('/api/public', require('./routes/public'));
 
 app.get('/api/health', (req, res) => {
   res.json({

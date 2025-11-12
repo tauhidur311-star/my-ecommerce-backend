@@ -29,3 +29,8 @@ yarn-error.log*
 .cache/
 dist/
 build/
+
+# Uploaded files
+uploads/
+!uploads/.gitkeep
+!uploads/assets/.gitkeep
