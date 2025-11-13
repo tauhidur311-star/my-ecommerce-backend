@@ -33,7 +33,11 @@
     "nodemailer": "^7.0.10",
     "socket.io": "^4.8.1",
     "stripe": "^14.7.0",
-    "xss-clean": "^0.1.4"
+    "xss-clean": "^0.1.4",
+    "validator": "^13.11.0",
+    "speakeasy": "^2.0.0",
+    "qrcode": "^1.5.3",
+    "isomorphic-dompurify": "^2.6.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

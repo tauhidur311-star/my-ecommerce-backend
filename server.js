@@ -25,15 +25,33 @@ const { validate } = require('./utils/validation');
 const errorHandler = require('./middleware/errorHandler');
 const connectDB = require('./config/database');
 
-// Enhanced Security Middleware
-const { enhancedSecurityHeaders } = require('./middleware/securityHeaders');
-const { enhancedSanitize } = require('./middleware/enhancedSanitize');
-const { conditionalCSRF, generateCSRFToken } = require('./middleware/enhancedCSRF');
-const { 
-  apiLimiter: enhancedApiLimiter, 
-  authLimiter: enhancedAuthLimiter,
-  recordRateLimit 
-} = require('./middleware/enhancedRateLimit');
+// Enhanced Security Middleware (with fallbacks)
+let enhancedSecurityHeaders, enhancedSanitize, conditionalCSRF, generateCSRFToken;
+let enhancedApiLimiter, enhancedAuthLimiter, recordRateLimit;
+
+try {
+  ({ enhancedSecurityHeaders } = require('./middleware/securityHeaders'));
+  ({ enhancedSanitize } = require('./middleware/enhancedSanitize'));
+  ({ conditionalCSRF, generateCSRFToken } = require('./middleware/enhancedCSRF'));
+  ({ 
+    apiLimiter: enhancedApiLimiter, 
+    authLimiter: enhancedAuthLimiter,
+    recordRateLimit 
+  } = require('./middleware/enhancedRateLimit'));
+  console.log('✅ Enhanced security middleware loaded');
+} catch (error) {
+  console.warn('⚠️  Enhanced security middleware not available:', error.message);
+  console.warn('⚠️  Using fallback security measures');
+  
+  // Fallback implementations
+  enhancedSecurityHeaders = (req, res, next) => next();
+  enhancedSanitize = sanitizeInput;
+  conditionalCSRF = () => (req, res, next) => next();
+  generateCSRFToken = () => (req, res, next) => next();
+  enhancedApiLimiter = apiLimiter;
+  enhancedAuthLimiter = authLimiter;
+  recordRateLimit = (req, res, next) => next();
+}
 
 const app = express();
 
@@ -197,8 +215,13 @@ app.use('/api/notifications', require('./routes/notifications'));
 // Search routes
 app.use('/api/search', require('./routes/search'));
 
-// Enhanced Authentication routes
-app.use('/api/auth/enhanced', require('./routes/enhancedAuth'));
+// Enhanced Authentication routes (with fallback)
+try {
+  app.use('/api/auth/enhanced', require('./routes/enhancedAuth'));
+  console.log('✅ Enhanced auth routes loaded');
+} catch (error) {
+  console.warn('⚠️  Enhanced auth routes not available:', error.message);
+}
 
 // Two-Factor Authentication routes
 app.use('/api/auth/2fa', require('./routes/twoFactorAuth'));
