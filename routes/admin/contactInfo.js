@@ -240,6 +240,62 @@ const validateContactInfo = [
 // @route   GET /api/admin/contact-info
 // @desc    Get contact information settings
 // @access  Private/Admin
+// Get public contact info (only visible fields) 
+router.get('/public', async (req, res) => {
+  try {
+    const ContactInfo = require('../../models/ContentSettings');
+    const contactInfo = await ContactInfo.findOne({ type: 'contact' });
+    
+    if (!contactInfo) {
+      return res.json({
+        success: true,
+        data: {}
+      });
+    }
+
+    // Only return visible contact information
+    const publicInfo = {};
+    
+    if (contactInfo.data) {
+      // Handle both old and new format
+      if (contactInfo.data.phone?.isVisible !== false) {
+        publicInfo.phoneNumber = contactInfo.data.phone;
+      }
+      if (contactInfo.data.email?.isVisible !== false) {
+        publicInfo.email = contactInfo.data.email;
+      }
+      if (contactInfo.data.address?.isVisible !== false) {
+        publicInfo.address = contactInfo.data.address;
+      }
+      
+      // Include other fields as they are
+      if (contactInfo.data.liveChatAvailability) {
+        publicInfo.liveChatAvailability = contactInfo.data.liveChatAvailability;
+      }
+      if (contactInfo.data.businessHours) {
+        publicInfo.businessHours = contactInfo.data.businessHours;
+      }
+      if (contactInfo.data.socialLinks) {
+        publicInfo.socialLinks = contactInfo.data.socialLinks;
+      }
+      if (contactInfo.data.emergencyContact) {
+        publicInfo.emergencyContact = contactInfo.data.emergencyContact;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: publicInfo
+    });
+  } catch (error) {
+    console.error('Get public contact info error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch public contact info'
+    });
+  }
+});
+
 router.get('/', adminAuth, async (req, res) => {
   try {
     let contactInfo = await ContactInfo.findOne();
