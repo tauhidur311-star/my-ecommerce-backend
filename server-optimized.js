@@ -360,6 +360,17 @@ try {
   logger.debug('Swagger documentation not available', { error: error.message });
 }
 
+// Email testing routes (for development/testing)
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const testEmailRoutes = require('./routes/test-email');
+    app.use('/api/test', testEmailRoutes);
+    logger.info('Email testing endpoints available at /api/test');
+  } catch (error) {
+    logger.warn('Email testing routes not available', { error: error.message });
+  }
+}
+
 // Global error handler for unhandled routes
 app.use('*', (req, res) => {
   logger.logSecurity('route_not_found', {
