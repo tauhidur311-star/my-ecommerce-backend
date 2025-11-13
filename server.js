@@ -253,6 +253,9 @@ app.use('/api/admin/contacts', require('./routes/admin/contacts'));
 app.use('/api/admin/contact-info', require('./routes/admin/contactInfo'));
 app.use('/api/admin/email-templates', require('./routes/admin/emailTemplates'));
 
+// Admin dashboard routes (fix missing endpoints)
+app.use('/api/admin', require('./routes/admin'));
+
 // Email campaign routes
 app.use('/api/admin/email-campaigns', require('./routes/emailCampaignRoutes'));
 

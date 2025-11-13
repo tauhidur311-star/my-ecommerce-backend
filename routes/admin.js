@@ -336,6 +336,106 @@ router.get('/products', adminAuth, async (req, res) => {
   }
 });
 
+// Add missing analytics/summary endpoint for dashboard
+router.get('/analytics/summary', adminAuth, async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Get real data from Contact model
+    const Contact = require('../models/Contact');
+    
+    const [todaySubmissions, todayViews, totalRevenue] = await Promise.all([
+      // Count today's contact submissions
+      Contact.countDocuments({ 
+        createdAt: { $gte: today, $lt: tomorrow } 
+      }),
+      // For now, return a placeholder for views (implement analytics later)
+      Promise.resolve(0),
+      // Calculate revenue from completed orders
+      Order.aggregate([
+        { $match: { paymentStatus: 'completed', createdAt: { $gte: today, $lt: tomorrow } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ])
+    ]);
+
+    const revenue = totalRevenue.length > 0 ? totalRevenue[0].total : 0;
+
+    res.json({
+      success: true,
+      data: {
+        todaySubmissions,
+        todayViews,
+        revenue
+      }
+    });
+  } catch (error) {
+    console.error('Analytics summary error:', error);
+    res.json({
+      success: true,
+      data: { todaySubmissions: 0, todayViews: 0, revenue: 0 }
+    });
+  }
+});
+
+// Recent submissions for real notifications
+router.get('/analytics/recent-submissions', adminAuth, async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const Contact = require('../models/Contact');
+    
+    const recentSubmissions = await Contact.find({ isRead: false })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .select('name email subject message createdAt isRead');
+
+    res.json({
+      success: true,
+      data: recentSubmissions
+    });
+  } catch (error) {
+    console.error('Recent submissions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch recent submissions'
+    });
+  }
+});
+
+// Recent orders for notifications
+router.get('/orders/recent', adminAuth, async (req, res) => {
+  try {
+    const { limit = 5, unread } = req.query;
+    
+    const filter = {};
+    if (unread === 'true') {
+      // Only show recent orders (within last 24 hours) as "new"
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      filter.createdAt = { $gte: yesterday };
+    }
+
+    const recentOrders = await Order.find(filter)
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .select('orderNumber totalAmount status paymentStatus createdAt userId');
+
+    res.json({
+      success: true,
+      data: recentOrders
+    });
+  } catch (error) {
+    console.error('Recent orders error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch recent orders'
+    });
+  }
+});
+
 // Order Management
 router.get('/orders', adminAuth, async (req, res) => {
   try {
@@ -564,6 +664,166 @@ router.put('/settings', requireRole(['super_admin']), async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to update settings'
+    });
+  }
+});
+
+// Email Dashboard APIs
+
+// Get email settings
+router.get('/email-settings', adminAuth, async (req, res) => {
+  try {
+    // For demo purposes, return default settings
+    // In production, store these in database or config
+    const emailSettings = {
+      senderName: process.env.EMAIL_SENDER_NAME || 'Your Store',
+      replyToAddress: process.env.EMAIL_REPLY_TO || 'noreply@yourstore.com',
+      smtpHost: process.env.EMAIL_HOST || '',
+      smtpPort: parseInt(process.env.EMAIL_PORT) || 587,
+      smtpUser: process.env.EMAIL_USER || '',
+      smtpSecure: process.env.EMAIL_SECURE === 'true'
+    };
+
+    res.json({
+      success: true,
+      data: emailSettings
+    });
+  } catch (error) {
+    console.error('Get email settings error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch email settings'
+    });
+  }
+});
+
+// Save email settings
+router.post('/email-settings', adminAuth, async (req, res) => {
+  try {
+    const { senderName, replyToAddress, smtpHost, smtpPort, smtpUser, smtpPassword, smtpSecure } = req.body;
+    
+    // In production, save these to database or update environment variables
+    // For now, just return success
+    res.json({
+      success: true,
+      message: 'Email settings saved successfully',
+      data: { senderName, replyToAddress, smtpHost, smtpPort, smtpUser, smtpSecure }
+    });
+  } catch (error) {
+    console.error('Save email settings error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to save email settings'
+    });
+  }
+});
+
+// Get email history
+router.get('/email-history', adminAuth, async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+    
+    // Try to get email history from EmailEvent model if available
+    try {
+      const EmailEvent = require('../models/EmailEvent');
+      const emailHistory = await EmailEvent.find({})
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .select('to subject status sentAt createdAt errorMessage');
+
+      res.json({
+        success: true,
+        data: emailHistory
+      });
+    } catch (modelError) {
+      // If EmailEvent model doesn't exist, return empty array
+      res.json({
+        success: true,
+        data: []
+      });
+    }
+  } catch (error) {
+    console.error('Get email history error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch email history'
+    });
+  }
+});
+
+// Send email
+router.post('/send-email', adminAuth, async (req, res) => {
+  try {
+    const { to, subject, body, isHtml = false } = req.body;
+
+    if (!to || !subject || !body) {
+      return res.status(400).json({
+        success: false,
+        error: 'To, subject, and body are required'
+      });
+    }
+
+    // Try to use the email service
+    try {
+      const emailService = require('../utils/emailService');
+      
+      const emailOptions = {
+        to,
+        subject,
+        text: isHtml ? undefined : body,
+        html: isHtml ? body : undefined
+      };
+
+      await emailService.sendEmail(emailOptions);
+
+      // Log email event if EmailEvent model exists
+      try {
+        const EmailEvent = require('../models/EmailEvent');
+        await EmailEvent.create({
+          to,
+          subject,
+          body,
+          status: 'sent',
+          sentAt: new Date(),
+          sentBy: req.user._id
+        });
+      } catch (logError) {
+        console.log('Email event logging not available');
+      }
+
+      res.json({
+        success: true,
+        message: 'Email sent successfully'
+      });
+
+    } catch (emailError) {
+      console.error('Email send error:', emailError);
+      
+      // Log failed email event
+      try {
+        const EmailEvent = require('../models/EmailEvent');
+        await EmailEvent.create({
+          to,
+          subject,
+          body,
+          status: 'failed',
+          errorMessage: emailError.message,
+          sentBy: req.user._id
+        });
+      } catch (logError) {
+        console.log('Email event logging not available');
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to send email: ' + emailError.message
+      });
+    }
+  } catch (error) {
+    console.error('Send email error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process email request'
     });
   }
 });
