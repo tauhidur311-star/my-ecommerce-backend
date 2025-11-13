@@ -101,6 +101,7 @@ const corsOptions = {
       process.env.ADMIN_URL,
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://my-ecommerce-frontend-1osx.onrender.com',
       'https://my-ecommerce-frontend.onrender.com',
       'https://your-custom-domain.com'
     ].filter(Boolean);
