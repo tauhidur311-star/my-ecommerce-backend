@@ -424,4 +424,18 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
+// Enhanced notification routes
+const {
+  createNotification,
+  sendTestNotification,
+  getNotificationAnalytics,
+  sendBulkNotifications
+} = require('../controllers/notificationController');
+
+// Admin notification management routes
+router.post('/admin/create', adminAuth, createNotification);
+router.post('/admin/test', adminAuth, sendTestNotification);
+router.post('/admin/bulk', adminAuth, sendBulkNotifications);
+router.get('/admin/analytics', adminAuth, getNotificationAnalytics);
+
 module.exports = router;

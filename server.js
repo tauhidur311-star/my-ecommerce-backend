@@ -253,6 +253,18 @@ app.use('/api/admin/contacts', require('./routes/admin/contacts'));
 app.use('/api/admin/contact-info', require('./routes/admin/contactInfo'));
 app.use('/api/admin/email-templates', require('./routes/admin/emailTemplates'));
 
+// Email campaign routes
+app.use('/api/admin/email-campaigns', require('./routes/emailCampaignRoutes'));
+
+// Enhanced notification routes
+try {
+  const notificationRoutes = require('./routes/notifications');
+  app.use('/api/admin/notifications', notificationRoutes);
+  console.log('✅ Enhanced notification routes loaded');
+} catch (error) {
+  console.warn('⚠️  Enhanced notification routes not available:', error.message);
+}
+
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
