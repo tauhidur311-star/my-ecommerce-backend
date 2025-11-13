@@ -4,33 +4,33 @@ class SSEManager {
   }
 
   // Add a new SSE connection
-  addConnection(userId, res) {
-    if (!this.connections.has(userId)) {
-      this.connections.set(userId, new Set());
+  addConnection(connectionId, res) {
+    if (!this.connections.has(connectionId)) {
+      this.connections.set(connectionId, new Set());
     }
     
-    this.connections.get(userId).add(res);
+    this.connections.get(connectionId).add(res);
     
     // Clean up when connection closes
     res.on('close', () => {
-      this.removeConnection(userId, res);
+      this.removeConnection(connectionId, res);
     });
 
-    console.log(`SSE connection added for user ${userId}. Total connections: ${this.getTotalConnections()}`);
+    console.log(`✅ SSE connection added: ${connectionId}. Total connections: ${this.getTotalConnections()}`);
   }
 
   // Remove a connection
-  removeConnection(userId, res) {
-    if (this.connections.has(userId)) {
-      this.connections.get(userId).delete(res);
+  removeConnection(connectionId, res) {
+    if (this.connections.has(connectionId)) {
+      this.connections.get(connectionId).delete(res);
       
       // Remove empty sets
-      if (this.connections.get(userId).size === 0) {
-        this.connections.delete(userId);
+      if (this.connections.get(connectionId).size === 0) {
+        this.connections.delete(connectionId);
       }
     }
 
-    console.log(`SSE connection removed for user ${userId}. Total connections: ${this.getTotalConnections()}`);
+    console.log(`🔌 SSE connection removed: ${connectionId}. Total connections: ${this.getTotalConnections()}`);
   }
 
   // Send message to specific user
