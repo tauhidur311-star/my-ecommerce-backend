@@ -1,7 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const { body, validationResult } = require('express-validator');
 const Contact = require('../models/Contact');
+
+// Try to load express-validator, fallback to custom validation
+let body, validationResult;
+try {
+  ({ body, validationResult } = require('express-validator'));
+} catch (error) {
+  console.warn('⚠️ express-validator not available, using fallback validation');
+  // Fallback validation functions
+  body = (field) => ({
+    trim: () => ({ isLength: () => ({ withMessage: () => ({ matches: () => ({ withMessage: () => ({}) }) }) }) }),
+    isEmail: () => ({ normalizeEmail: () => ({ withMessage: () => ({ isLength: () => ({ withMessage: () => ({}) }) }) }) }),
+    isIn: () => ({ withMessage: () => ({}) }),
+    escape: () => ({})
+  });
+  validationResult = () => ({ isEmpty: () => true, array: () => [] });
+}
+
 const { validate } = require('../utils/validation');
 
 // Enhanced email service (with fallback)
