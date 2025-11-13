@@ -23,8 +23,7 @@ const connectDB = async () => {
       socketTimeoutMS: 45000,
       family: 4, // Use IPv4, skip trying IPv6
       
-      // Buffering settings
-      bufferMaxEntries: 0,
+      // Buffering settings (removed bufferMaxEntries as it's deprecated)
       bufferCommands: false,
       
       // Heartbeat settings

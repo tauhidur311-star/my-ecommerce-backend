@@ -14,20 +14,26 @@ class MailjetEmailService {
   initializeMailjet() {
     try {
       if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) {
-        this.mailjetClient = Mailjet.connect(
-          process.env.MAILJET_API_KEY,
-          process.env.MAILJET_SECRET_KEY
-        );
+        this.mailjetClient = new Mailjet({
+          apiKey: process.env.MAILJET_API_KEY,
+          apiSecret: process.env.MAILJET_SECRET_KEY
+        });
         this.isMailjetConfigured = true;
-        console.log('✅ Mailjet REST API configured successfully');
+        const logger = require('./structuredLogger');
+        logger.info('Mailjet REST API configured successfully');
         
         // Test the connection
         this.testMailjetConnection();
       } else {
-        console.warn('⚠️  Mailjet API keys not found. Please set MAILJET_API_KEY and MAILJET_SECRET_KEY');
+        const logger = require('./structuredLogger');
+        logger.warn('Mailjet API keys not found', {
+          hasApiKey: !!process.env.MAILJET_API_KEY,
+          hasSecretKey: !!process.env.MAILJET_SECRET_KEY
+        });
       }
     } catch (error) {
-      console.error('❌ Failed to initialize Mailjet:', error.message);
+      const logger = require('./structuredLogger');
+      logger.error('Failed to initialize Mailjet', { error: error.message });
       this.isMailjetConfigured = false;
     }
   }
@@ -40,13 +46,15 @@ class MailjetEmailService {
         .request();
       
       if (result.response && result.response.status === 200) {
-        console.log('✅ Mailjet REST API connection verified successfully');
+        const logger = require('./structuredLogger');
+        logger.info('Mailjet REST API connection verified successfully');
         return true;
       } else {
         throw new Error('Invalid response from Mailjet API');
       }
     } catch (error) {
-      console.error('❌ Mailjet API connection test failed:', error.message);
+      const logger = require('./structuredLogger');
+      logger.error('Mailjet API connection test failed', { error: error.message });
       this.isMailjetConfigured = false;
       return false;
     }
@@ -417,7 +425,8 @@ If you didn't request this code, please ignore this email.
       
       return result.body;
     } catch (error) {
-      console.error('Failed to get Mailjet stats:', error.message);
+      const logger = require('./structuredLogger');
+      logger.error('Failed to get Mailjet stats', { error: error.message });
       throw error;
     }
   }
