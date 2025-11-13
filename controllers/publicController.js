@@ -315,67 +315,56 @@ const getPreviewTheme = async (req, res) => {
 
 // SSE endpoint for theme updates
 const themeUpdatesSSE = (req, res) => {
-  try {
-    console.log('🔌 SSE connection attempt to /theme/updates');
-    
-    // Set SSE headers
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
-    });
-    
-    console.log('📡 SSE headers set, sending initial message');
-    
-    // Send initial connection message
-    res.write(`event: connected\n`);
-    res.write(`data: ${JSON.stringify({ message: 'Connected to theme updates', timestamp: new Date().toISOString() })}\n\n`);
-    
-    // Add connection to SSE manager
-    const sseManager = require('../utils/sseManager');
-    const connectionId = `public-${Date.now()}-${Math.random()}`;
-    
-    console.log(`🔗 Adding connection to SSE manager: ${connectionId}`);
-    sseManager.addConnection(connectionId, res);
-    
-    // Handle client disconnect
-    req.on('close', () => {
-      sseManager.removeConnection(connectionId, res);
-      console.log('🔌 Public SSE client disconnected');
-    });
-    
-    req.on('error', (err) => {
-      console.error('❌ Public SSE connection error:', err);
-      sseManager.removeConnection(connectionId, res);
-    });
-    
-    // Send keep-alive ping every 20 seconds
-    const keepAlive = setInterval(() => {
-      try {
-        res.write(`event: ping\n`);
-        res.write(`data: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`);
-      } catch (error) {
-        console.error('❌ Error sending keep-alive:', error);
-        clearInterval(keepAlive);
-        sseManager.removeConnection(connectionId, res);
-      }
-    }, 20000);
-    
-    // Clean up interval on disconnect
-    res.on('close', () => {
-      clearInterval(keepAlive);
-    });
-    
-  } catch (error) {
-    console.error('💥 Error in themeUpdatesSSE:', error);
-    res.status(500).json({
-      success: false,
-      message: 'SSE connection failed',
-      error: error.message
-    });
-  }
+  console.log('🚀 THEME UPDATES SSE ENDPOINT HIT - Starting SSE connection');
+  
+  // Set SSE headers immediately
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
+  
+  console.log('📡 SSE headers written, sending initial message');
+  
+  // Send initial connection message immediately
+  res.write(`event: connected\n`);
+  res.write(`data: ${JSON.stringify({ 
+    message: 'Connected to theme updates successfully', 
+    timestamp: new Date().toISOString(),
+    connectionId: Date.now() 
+  })}\n\n`);
+  
+  console.log('📨 Initial SSE message sent');
+  
+  // Simple keep-alive ping every 10 seconds
+  const pingInterval = setInterval(() => {
+    try {
+      console.log('🏓 Sending SSE ping');
+      res.write(`event: ping\n`);
+      res.write(`data: ${JSON.stringify({ 
+        type: 'ping', 
+        timestamp: new Date().toISOString() 
+      })}\n\n`);
+    } catch (error) {
+      console.error('❌ Error sending ping:', error);
+      clearInterval(pingInterval);
+    }
+  }, 10000);
+  
+  // Handle connection close
+  req.on('close', () => {
+    console.log('🔌 SSE connection closed by client');
+    clearInterval(pingInterval);
+  });
+  
+  req.on('error', (err) => {
+    console.error('❌ SSE connection error:', err);
+    clearInterval(pingInterval);
+  });
+  
+  console.log('✅ SSE connection fully established');
 };
 
 module.exports = {
