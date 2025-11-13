@@ -1,5 +1,5 @@
 const morgan = require('morgan');
-const logger = require('../utils/logger');
+const logger = require('../utils/structuredLogger');
 
 // Custom Morgan format for structured logging
 const morganFormat = ':method :url :status :res[content-length] - :response-time ms';
