@@ -3,7 +3,13 @@ const router = express.Router();
 const EmailCampaign = require('../models/EmailCampaign');
 const User = require('../models/User');
 const { adminAuth } = require('../middleware/adminAuth');
-const { rateLimit } = require('../middleware/rateLimit');
+// Import rate limit with fallback
+let rateLimit;
+try {
+  rateLimit = require('../middleware/rateLimit').rateLimit || require('express-rate-limit');
+} catch (error) {
+  rateLimit = require('express-rate-limit');
+}
 
 // Apply admin authentication
 router.use(adminAuth);
