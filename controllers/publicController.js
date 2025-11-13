@@ -40,6 +40,13 @@ const getPublishedTheme = async (req, res) => {
     const template = await Template.findOne(query)
       .select('publishedJson seoTitle seoDescription seoKeywords updatedAt');
     
+    // Set cache headers for published content
+    res.set({
+      'Cache-Control': 'no-store',
+      'ETag': `"theme-${pageType}-${template ? template.updatedAt.getTime() : Date.now()}"`,
+      'Last-Modified': template ? template.updatedAt.toUTCString() : new Date().toUTCString()
+    });
+    
     if (!template || !template.publishedJson) {
       // Return default layout if no published template found
       const defaultLayout = getDefaultLayout(pageType);
@@ -228,7 +235,135 @@ function getDefaultLayout(pageType) {
   return defaults[pageType] || { sections: [] };
 }
 
+// Get draft theme for preview (admin only)
+const getPreviewTheme = async (req, res) => {
+  try {
+    const { pageType, slug } = req.params;
+    
+    // Find active theme
+    const activeTheme = await Theme.findOne({ isActive: true });
+    
+    if (!activeTheme) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active theme found'
+      });
+    }
+    
+    // Build query for draft template
+    const query = {
+      themeId: activeTheme._id
+      // Note: No status filter - we want draft content for preview
+    };
+    
+    if (pageType === 'custom' && slug) {
+      query.pageType = 'custom';
+      query.slug = slug;
+    } else {
+      query.pageType = pageType;
+    }
+    
+    const template = await Template.findOne(query)
+      .select('json seoTitle seoDescription seoKeywords updatedAt status');
+    
+    // Set no-cache headers for preview content
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
+    if (!template || !template.json) {
+      // Return default layout if no template found
+      const defaultLayout = getDefaultLayout(pageType);
+      return res.status(200).json({
+        success: true,
+        data: {
+          layout: defaultLayout,
+          seo: {
+            title: `${pageType.charAt(0).toUpperCase() + pageType.slice(1)} - Your Store`,
+            description: `${pageType} page`,
+            keywords: [pageType]
+          },
+          lastUpdated: new Date().toISOString(),
+          isDraft: true
+        }
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        layout: template.json, // Return draft JSON for preview
+        seo: {
+          title: template.seoTitle,
+          description: template.seoDescription,
+          keywords: template.seoKeywords
+        },
+        lastUpdated: template.updatedAt,
+        isDraft: template.status === 'draft'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching preview theme',
+      error: error.message
+    });
+  }
+};
+
+// SSE endpoint for theme updates
+const themeUpdatesSSE = (req, res) => {
+  // Set SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
+  
+  // Send initial connection message
+  res.write(`event: connected\n`);
+  res.write(`data: ${JSON.stringify({ message: 'Connected to theme updates', timestamp: new Date().toISOString() })}\n\n`);
+  
+  // Add connection to SSE manager
+  const sseManager = require('../utils/sseManager');
+  const connectionId = `public-${Date.now()}-${Math.random()}`;
+  sseManager.addConnection(connectionId, res);
+  
+  // Handle client disconnect
+  req.on('close', () => {
+    sseManager.removeConnection(connectionId, res);
+    console.log('Public SSE client disconnected');
+  });
+  
+  req.on('error', (err) => {
+    console.error('Public SSE connection error:', err);
+    sseManager.removeConnection(connectionId, res);
+  });
+  
+  // Send keep-alive ping every 20 seconds
+  const keepAlive = setInterval(() => {
+    try {
+      res.write(`event: ping\n`);
+      res.write(`data: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`);
+    } catch (error) {
+      clearInterval(keepAlive);
+      sseManager.removeConnection(connectionId, res);
+    }
+  }, 20000);
+  
+  // Clean up interval on disconnect
+  res.on('close', () => {
+    clearInterval(keepAlive);
+  });
+};
+
 module.exports = {
   getPublishedTheme,
-  getPublishedPages
+  getPublishedPages,
+  getPreviewTheme,
+  themeUpdatesSSE
 };

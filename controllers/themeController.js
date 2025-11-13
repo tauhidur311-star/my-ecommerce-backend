@@ -183,6 +183,20 @@ const publishTemplate = async (req, res) => {
     
     await template.publish();
     
+    // Import SSE manager for broadcasting
+    const sseManager = require('../utils/sseManager');
+    
+    // Emit theme-updated event to all connected clients
+    sseManager.broadcast('theme-update', {
+      pageType: template.pageType,
+      slug: template.slug,
+      updatedAt: template.updatedAt.toISOString(),
+      publishedAt: template.publishedAt.toISOString(),
+      themeId: template.themeId
+    });
+    
+    console.log(`Published template ${template.pageType} and broadcasted to ${sseManager.getTotalConnections()} connections`);
+    
     res.status(200).json({
       success: true,
       message: 'Template published successfully',
