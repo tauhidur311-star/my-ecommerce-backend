@@ -91,7 +91,7 @@ router.get('/metrics', async (req, res) => {
 });
 
 // Database performance test
-router.post('/test-db', async (req, res) => {
+router.get('/test-db', async (req, res) => {
   try {
     const startTime = Date.now();
     
