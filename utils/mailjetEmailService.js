@@ -92,7 +92,12 @@ class MailjetEmailService {
         .request(mailjetRequest);
 
       if (result.response && result.response.status === 200) {
-        console.log('✅ Email sent successfully via Mailjet REST API');
+        const logger = require('./structuredLogger');
+        logger.info('Email sent successfully via Mailjet REST API', {
+          to: emailData.to,
+          subject: emailData.subject,
+          messageId: result.body.Messages[0].To[0].MessageID
+        });
         return {
           success: true,
           messageId: result.body.Messages[0].To[0].MessageID,
@@ -103,7 +108,12 @@ class MailjetEmailService {
       }
 
     } catch (error) {
-      console.error('❌ Failed to send email via Mailjet REST API:', error.message);
+      const logger = require('./structuredLogger');
+      logger.error('Failed to send email via Mailjet REST API', {
+        error: error.message,
+        to: emailData.to,
+        subject: emailData.subject
+      });
       throw error;
     }
   }
