@@ -313,58 +313,80 @@ const getPreviewTheme = async (req, res) => {
   }
 };
 
-// SSE endpoint for theme updates
+// SSE endpoint for theme updates - Render compatible
 const themeUpdatesSSE = (req, res) => {
   console.log('🚀 THEME UPDATES SSE ENDPOINT HIT - Starting SSE connection');
   
-  // Set SSE headers immediately
+  // Render-compatible SSE headers
   res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Cache-Control'
+    'Access-Control-Allow-Origin': req.headers.origin || '*',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'Cache-Control, Content-Type',
+    'X-Accel-Buffering': 'no' // Disable Nginx buffering for SSE
   });
   
-  console.log('📡 SSE headers written, sending initial message');
+  console.log('📡 Render-compatible SSE headers set');
   
-  // Send initial connection message immediately
-  res.write(`event: connected\n`);
-  res.write(`data: ${JSON.stringify({ 
-    message: 'Connected to theme updates successfully', 
+  // Send initial connection message with proper format
+  const sendMessage = (event, data) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+  
+  // Initial connection
+  sendMessage('connected', {
+    message: 'Connected to theme updates successfully',
     timestamp: new Date().toISOString(),
-    connectionId: Date.now() 
-  })}\n\n`);
+    server: 'render'
+  });
   
   console.log('📨 Initial SSE message sent');
   
-  // Simple keep-alive ping every 10 seconds
+  let isConnected = true;
+  
+  // Aggressive keep-alive for Render (every 5 seconds)
   const pingInterval = setInterval(() => {
+    if (!isConnected) {
+      clearInterval(pingInterval);
+      return;
+    }
+    
     try {
-      console.log('🏓 Sending SSE ping');
-      res.write(`event: ping\n`);
-      res.write(`data: ${JSON.stringify({ 
-        type: 'ping', 
-        timestamp: new Date().toISOString() 
-      })}\n\n`);
+      sendMessage('ping', {
+        type: 'keepalive',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      });
+      console.log('🏓 Render SSE ping sent');
     } catch (error) {
       console.error('❌ Error sending ping:', error);
+      isConnected = false;
       clearInterval(pingInterval);
     }
-  }, 10000);
+  }, 5000); // More frequent for Render
   
   // Handle connection close
   req.on('close', () => {
     console.log('🔌 SSE connection closed by client');
+    isConnected = false;
     clearInterval(pingInterval);
   });
   
   req.on('error', (err) => {
     console.error('❌ SSE connection error:', err);
+    isConnected = false;
     clearInterval(pingInterval);
   });
   
-  console.log('✅ SSE connection fully established');
+  // Render timeout handling
+  req.setTimeout(0); // Disable request timeout for SSE
+  
+  console.log('✅ Render-compatible SSE connection established');
 };
 
 module.exports = {
