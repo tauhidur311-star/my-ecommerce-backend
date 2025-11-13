@@ -430,6 +430,18 @@ const startServer = async () => {
       logger.warn('Socket.IO initialization failed', { error: error.message });
     }
 
+    // Initialize WebSocket for real-time notifications
+    try {
+      const wsManager = require('./routes/websocket');
+      wsManager.initialize(server);
+      logger.info('WebSocket notifications initialized');
+      
+      // Make wsManager available globally
+      app.locals.wsManager = wsManager;
+    } catch (error) {
+      logger.warn('WebSocket initialization failed', { error: error.message });
+    }
+
     // Background cleanup jobs with enhanced logging
     const Notification = require('./models/Notification');
     setInterval(async () => {
