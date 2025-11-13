@@ -235,7 +235,7 @@ router.post('/', contactLimiter, validateContactForm, async (req, res) => {
 // @route   GET /api/contact/stats
 // @desc    Get contact form statistics (admin only)
 // @access  Private/Admin
-router.get('/stats', require('../middleware/adminAuth'), async (req, res) => {
+router.get('/stats', require('../middleware/adminAuth').adminAuth, async (req, res) => {
   try {
     const stats = await Contact.aggregate([
       {
