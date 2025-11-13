@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const mailjetService = require('./mailjetEmailService');
 
 // Email service for sending notifications and verification emails
 class EmailService {
@@ -86,6 +87,20 @@ class EmailService {
   }
 
   async sendVerificationEmail(user, verificationToken) {
+    // Try Mailjet REST API first
+    if (mailjetService.isConfigured()) {
+      try {
+        console.log('📧 Attempting to send verification email via Mailjet REST API...');
+        const result = await mailjetService.sendVerificationEmail(user, verificationToken);
+        console.log('✅ Verification email sent successfully via Mailjet REST API');
+        return result;
+      } catch (error) {
+        console.error('❌ Mailjet REST API failed, falling back to SMTP:', error.message);
+        // Continue to SMTP fallback below
+      }
+    }
+
+    console.log('📧 Sending verification email via SMTP fallback...');
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}&email=${user.email}`;
     
     const fromEmail = process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@yourdomain.com';
@@ -143,6 +158,20 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(user, resetToken) {
+    // Try Mailjet REST API first
+    if (mailjetService.isConfigured()) {
+      try {
+        console.log('📧 Attempting to send password reset email via Mailjet REST API...');
+        const result = await mailjetService.sendPasswordResetEmail(user, resetToken);
+        console.log('✅ Password reset email sent successfully via Mailjet REST API');
+        return result;
+      } catch (error) {
+        console.error('❌ Mailjet REST API failed, falling back to SMTP:', error.message);
+        // Continue to SMTP fallback below
+      }
+    }
+
+    console.log('📧 Sending password reset email via SMTP fallback...');
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&email=${user.email}`;
     
     const fromEmail = process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@yourdomain.com';
@@ -181,6 +210,20 @@ class EmailService {
   }
 
   async sendTwoFactorCode(user, code) {
+    // Try Mailjet REST API first
+    if (mailjetService.isConfigured()) {
+      try {
+        console.log('📧 Attempting to send 2FA code via Mailjet REST API...');
+        const result = await mailjetService.sendOTPEmail(user.email, code, '2FA authentication');
+        console.log('✅ 2FA code sent successfully via Mailjet REST API');
+        return result;
+      } catch (error) {
+        console.error('❌ Mailjet REST API failed, falling back to SMTP:', error.message);
+        // Continue to SMTP fallback below
+      }
+    }
+
+    console.log('📧 Sending 2FA code via SMTP fallback...');
     const fromEmail = process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@yourdomain.com';
     const fromName = process.env.FROM_NAME || process.env.APP_NAME || 'Your Store';
     
