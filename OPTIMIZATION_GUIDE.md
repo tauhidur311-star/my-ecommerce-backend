@@ -56,12 +56,12 @@ LOG_LEVEL=info
 # Redis (optional - will use memory cache as fallback)
 REDIS_URL=redis://localhost:6379
 
-# Security Alerts
+# Security Alerts  
 ALERT_EMAIL=admin@yourdomain.com
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
+MAILJET_API_KEY=your_mailjet_api_key
+MAILJET_SECRET_KEY=your_mailjet_secret_key
+FROM_EMAIL=security@yourdomain.com
+FROM_NAME=E-commerce Security System
 
 # Slack Alerts (optional)
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK

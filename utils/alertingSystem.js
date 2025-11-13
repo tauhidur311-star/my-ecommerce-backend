@@ -1,35 +1,30 @@
-const nodemailer = require('nodemailer');
 const logger = require('./structuredLogger');
 
 class AlertingSystem {
   constructor() {
-    this.emailTransporter = null;
+    this.mailjetClient = null;
     this.alertQueue = [];
     this.isProcessing = false;
-    this.initializeEmailTransporter();
+    this.initializeMailjetClient();
   }
 
-  async initializeEmailTransporter() {
+  async initializeMailjetClient() {
     try {
-      if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-        this.emailTransporter = nodemailer.createTransporter({
-          host: process.env.SMTP_HOST,
-          port: process.env.SMTP_PORT || 587,
-          secure: false,
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-          }
+      if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) {
+        const Mailjet = require('node-mailjet');
+        this.mailjetClient = new Mailjet({
+          apiKey: process.env.MAILJET_API_KEY,
+          apiSecret: process.env.MAILJET_SECRET_KEY
         });
 
-        // Verify connection
-        await this.emailTransporter.verify();
-        logger.info('Alerting system email transporter initialized');
+        // Test connection with a simple API call
+        await this.mailjetClient.get('contactslist').request();
+        logger.info('Alerting system Mailjet client initialized');
       } else {
-        logger.warn('Email alerting not configured - missing SMTP credentials');
+        logger.warn('Email alerting not configured - missing Mailjet API credentials');
       }
     } catch (error) {
-      logger.error('Failed to initialize email transporter', { error: error.message });
+      logger.error('Failed to initialize Mailjet client', { error: error.message });
     }
   }
 
@@ -83,7 +78,7 @@ class AlertingSystem {
     const { severity, title, message, metadata } = alert;
 
     // Send email for high/critical alerts
-    if ((severity === 'high' || severity === 'critical') && this.emailTransporter) {
+    if ((severity === 'high' || severity === 'critical') && this.mailjetClient) {
       await this.sendEmailAlert(alert);
     }
 
@@ -129,20 +124,58 @@ class AlertingSystem {
         </div>
       `;
 
-      const mailOptions = {
-        from: process.env.FROM_EMAIL || 'security@yourdomain.com',
-        to: process.env.ALERT_EMAIL || 'admin@yourdomain.com',
-        subject: `🚨 ${severity.toUpperCase()} Security Alert: ${title}`,
-        html: htmlContent
+      const textContent = `
+🚨 ${severity.toUpperCase()} SECURITY ALERT
+
+Title: ${title}
+Message: ${message}
+Severity: ${severity}
+Timestamp: ${timestamp}
+Environment: ${process.env.NODE_ENV}
+
+${metadata && Object.keys(metadata).length > 0 ? 
+  `Additional Details:\n${JSON.stringify(metadata, null, 2)}` : ''
+}
+      `.trim();
+
+      const emailData = {
+        Messages: [
+          {
+            From: {
+              Email: process.env.FROM_EMAIL || 'security@yourdomain.com',
+              Name: process.env.FROM_NAME || 'E-commerce Security System'
+            },
+            To: [
+              {
+                Email: process.env.ALERT_EMAIL || 'admin@yourdomain.com',
+                Name: 'Admin'
+              }
+            ],
+            Subject: `🚨 ${severity.toUpperCase()} Security Alert: ${title}`,
+            TextPart: textContent,
+            HTMLPart: htmlContent,
+            CustomID: `security-alert-${alert.id}`
+          }
+        ]
       };
 
-      await this.emailTransporter.sendMail(mailOptions);
-      logger.info('Security alert email sent', { alertId: alert.id, severity, title });
+      const result = await this.mailjetClient
+        .post('send', { version: 'v3.1' })
+        .request(emailData);
+
+      logger.info('Security alert email sent via Mailjet', { 
+        alertId: alert.id, 
+        severity, 
+        title,
+        messageId: result.body.Messages[0].To[0].MessageID,
+        status: result.body.Messages[0].Status
+      });
 
     } catch (error) {
-      logger.error('Failed to send alert email', { 
+      logger.error('Failed to send alert email via Mailjet', { 
         error: error.message, 
-        alertId: alert.id 
+        alertId: alert.id,
+        statusCode: error.statusCode
       });
     }
   }
