@@ -238,6 +238,9 @@ app.use('/api/admin/assets', require('./routes/assets'));
 app.use('/api/admin/reusable-blocks', require('./routes/reusableBlocks'));
 app.use('/api/public', require('./routes/public'));
 
+// Contact form routes
+app.use('/api/contact', require('./routes/contact'));
+
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
