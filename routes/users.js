@@ -9,7 +9,9 @@ const { validate } = require('../utils/validation');
 // Get User Profile
 router.get('/profile', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password -refreshTokens');
+    console.log('🔍 Get Profile - User ID from auth:', req.user.userId);
+    // Use req.userId for consistency (it's the ObjectId from auth middleware)
+    const user = await User.findById(req.userId).select('-password -refreshTokens');
     if (!user) {
       return res.status(404).json({ 
         success: false, 
@@ -55,13 +57,20 @@ router.get('/profile', auth, async (req, res) => {
 // Update User Profile
 router.put('/profile', auth, validate(require('../utils/validation').schemas.profileUpdate), async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    console.log('🔍 Profile Update - User ID from auth:', req.user.userId);
+    console.log('🔍 Profile Update - Request body:', req.body);
+    
+    // Use consistent user ID (req.userId is the ObjectId from auth middleware)
+    const user = await User.findById(req.userId);
     if (!user) {
+      console.error('❌ User not found in database for userId:', req.userId);
       return res.status(404).json({ 
         success: false, 
         error: 'User not found' 
       });
     }
+    
+    console.log('✅ Found user for profile update:', { id: user._id, name: user.name, email: user.email });
 
     const { name, phone, address, preferences } = req.body;
 
@@ -76,10 +85,26 @@ router.put('/profile', auth, validate(require('../utils/validation').schemas.pro
     }
 
     const updatedUser = await user.save();
+    console.log('✅ Profile updated successfully for user:', user._id);
+    
+    // Return clean user object without sensitive data
+    const responseUser = {
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
+      address: updatedUser.address,
+      preferences: updatedUser.preferences,
+      avatar: updatedUser.avatar,
+      createdAt: updatedUser.createdAt,
+      role: updatedUser.role,
+      isActive: updatedUser.isActive
+    };
+    
     res.json({ 
       success: true, 
       message: 'Profile updated successfully', 
-      user: updatedUser 
+      user: responseUser 
     });
   } catch (error) {
     console.error('Update profile error:', error);
@@ -317,7 +342,8 @@ router.get('/:id', adminAuth, async (req, res) => {
       data: userData
     });
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error('❌ Get user error:', error);
+    console.error('❌ Auth details:', { userId: req.userId, userFromToken: req.user });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch user'
@@ -370,10 +396,17 @@ router.patch('/:id/role', requireRole(['admin', 'super_admin']), async (req, res
       }
     });
   } catch (error) {
-    console.error('Update user role error:', error);
+    console.error('❌ Update profile error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      userId: req.userId,
+      userFromAuth: req.user,
+      requestBody: req.body
+    });
     res.status(500).json({
       success: false,
-      error: 'Failed to update user role'
+      error: 'Failed to update profile',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
