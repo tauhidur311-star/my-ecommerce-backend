@@ -227,6 +227,73 @@ class AnalyticsAggregations {
     
     return { todayViews: views, todaySubmissions: submissions };
   }
+
+  // Get daily submissions for time series charts
+  static async getDailySubmissions(days = 30) {
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    
+    return await Contact.aggregate([
+      { $match: { createdAt: { $gte: startDate } } },
+      { 
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+            day: { $dayOfMonth: "$createdAt" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+      { 
+        $project: {
+          date: {
+            $dateFromParts: {
+              year: "$_id.year", 
+              month: "$_id.month", 
+              day: "$_id.day"
+            }
+          },
+          count: 1,
+          _id: 0
+        }
+      }
+    ]);
+  }
+
+  // Get active sessions (last 30 minutes)
+  static async getActiveSessions() {
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    
+    const result = await VisitorEvent.aggregate([
+      { $match: { ts: { $gte: thirtyMinutesAgo } } },
+      { $group: { _id: "$sessionId" } },
+      { $count: "activeSessions" }
+    ]);
+    
+    return result.length > 0 ? result[0].activeSessions : 0;
+  }
+
+  // Get device breakdown
+  static async getDeviceBreakdown() {
+    return await VisitorEvent.aggregate([
+      { $match: { ts: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+      { $group: { _id: "$deviceType", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $project: { device: "$_id", count: 1, _id: 0 } }
+    ]);
+  }
+
+  // Get geographic data
+  static async getGeoData(limit = 10) {
+    return await VisitorEvent.aggregate([
+      { $match: { ts: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+      { $group: { _id: "$country", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: limit },
+      { $project: { country: "$_id", count: 1, _id: 0 } }
+    ]);
+  }
 }
 
 module.exports = AnalyticsAggregations;

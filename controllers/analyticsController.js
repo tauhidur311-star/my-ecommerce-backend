@@ -213,6 +213,21 @@ const broadcastNewSubmission = (submission) => {
   });
 };
 
+// Helper function to broadcast new submission
+const broadcastNewSubmission = (submission) => {
+  try {
+    broadcast('new-submission', {
+      id: submission._id,
+      name: submission.name,
+      email: submission.email,
+      subject: submission.subject,
+      submittedAt: submission.createdAt
+    });
+  } catch (error) {
+    console.error('Error broadcasting new submission:', error);
+  }
+};
+
 // Helper function to broadcast metric updates
 const broadcastMetricUpdate = async () => {
   try {

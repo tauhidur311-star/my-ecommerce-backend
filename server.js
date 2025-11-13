@@ -265,6 +265,26 @@ try {
   console.warn('⚠️  Enhanced notification routes not available:', error.message);
 }
 
+// Testimonials routes
+try {
+  const testimonialsRoutes = require('./routes/testimonials');
+  app.use('/api/admin/testimonials', testimonialsRoutes);
+  app.use('/api/testimonials', testimonialsRoutes);
+  console.log('✅ Testimonials routes loaded');
+} catch (error) {
+  console.warn('⚠️  Testimonials routes not available:', error.message);
+}
+
+// Content Settings routes
+try {
+  const contentSettingsRoutes = require('./routes/contentSettings');
+  app.use('/api/admin/content-settings', contentSettingsRoutes);
+  app.use('/api/content-settings', contentSettingsRoutes);
+  console.log('✅ Content Settings routes loaded');
+} catch (error) {
+  console.warn('⚠️  Content Settings routes not available:', error.message);
+}
+
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
