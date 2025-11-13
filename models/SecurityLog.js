@@ -88,8 +88,20 @@ securityLogSchema.statics.logEvent = async function(eventData) {
     
     // Send alerts for high/critical severity events
     if (eventData.severity === 'high' || eventData.severity === 'critical') {
-      // TODO: Integrate with alerting system (email, Slack, etc.)
-      console.warn(`🚨 Security Alert [${eventData.severity.toUpperCase()}]: ${eventData.action}`, eventData);
+      try {
+        const alertingSystem = require('../utils/alertingSystem');
+        await alertingSystem.handleSecurityEvent(eventData.action, {
+          severity: eventData.severity,
+          ip: eventData.ip,
+          userAgent: eventData.userAgent,
+          userId: eventData.userId,
+          details: eventData.details,
+          metadata: eventData.metadata
+        });
+      } catch (error) {
+        const logger = require('../utils/structuredLogger');
+        logger.error('Failed to send security alert', { error: error.message, eventData });
+      }
     }
     
     return log;

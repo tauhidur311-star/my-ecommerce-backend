@@ -319,8 +319,16 @@ const logSecurityEvent = async (eventData) => {
     
     // If high severity, could trigger immediate alerts
     if (eventData.severity === 'high') {
-      console.warn('HIGH SEVERITY SECURITY EVENT:', eventData);
-      // TODO: Implement real-time alerting (email, Slack, etc.)
+      try {
+        const alertingSystem = require('../utils/alertingSystem');
+        await alertingSystem.handleSecurityEvent(eventType, {
+          severity: eventData.severity || 'high',
+          ...eventData
+        });
+      } catch (error) {
+        const logger = require('../utils/structuredLogger');
+        logger.error('Failed to send real-time security alert', { error: error.message, eventData });
+      }
     }
   } catch (error) {
     console.error('Security event logging error:', error);

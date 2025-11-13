@@ -495,7 +495,24 @@ class InventoryController {
         });
       }
       
-      // TODO: Implement SMS and push notification alerts
+      // Send alerts through integrated alerting system
+      try {
+        const alertingSystem = require('../utils/alertingSystem');
+        await alertingSystem.handleInventoryAlert(type, {
+          productId: product._id,
+          productName: product.name,
+          currentStock: product.stock,
+          threshold: threshold || product.lowStockThreshold || 10,
+          ...additionalData
+        });
+      } catch (error) {
+        const logger = require('../utils/structuredLogger');
+        logger.error('Failed to send inventory alert', { 
+          error: error.message, 
+          productId: product._id, 
+          alertType: type 
+        });
+      }
       
     } catch (error) {
       console.error('Send alert error:', error);
