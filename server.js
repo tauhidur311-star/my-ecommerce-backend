@@ -244,6 +244,7 @@ app.use('/api/contact', require('./routes/contact'));
 // Admin contact management routes
 app.use('/api/admin/contacts', require('./routes/admin/contacts'));
 app.use('/api/admin/contact-info', require('./routes/admin/contactInfo'));
+app.use('/api/admin/email-templates', require('./routes/admin/emailTemplates'));
 
 app.get('/api/health', (req, res) => {
   res.json({

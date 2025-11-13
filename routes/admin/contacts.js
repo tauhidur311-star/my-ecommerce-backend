@@ -604,7 +604,121 @@ router.patch('/:id/spam', adminAuth, async (req, res) => {
   }
 });
 
-// @route   POST /api/admin/contacts/bulk-actions
+// @route   POST /api/admin/contacts/bulk-action
+// @desc    Handle bulk actions on multiple contacts
+// @access  Private/Admin
+router.post('/bulk-action', adminAuth, async (req, res) => {
+  try {
+    const { action, ids } = req.body;
+
+    // Validation
+    if (!action || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Action and contact IDs are required'
+      });
+    }
+
+    // Validate ObjectIds
+    const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length !== ids.length) {
+      return res.status(400).json({
+        success: false,
+        error: 'Some contact IDs are invalid'
+      });
+    }
+
+    let updateResult = {};
+    let deletedCount = 0;
+
+    switch (action) {
+      case 'markRead':
+        updateResult = await Contact.updateMany(
+          { _id: { $in: validIds } },
+          { 
+            isRead: true,
+            readAt: new Date(),
+            readBy: req.user._id
+          }
+        );
+        break;
+
+      case 'archive':
+        updateResult = await Contact.updateMany(
+          { _id: { $in: validIds } },
+          { 
+            status: 'closed',
+            resolvedAt: new Date(),
+            resolvedBy: req.user._id
+          }
+        );
+        break;
+
+      case 'delete':
+        const deleteResult = await Contact.deleteMany({ _id: { $in: validIds } });
+        deletedCount = deleteResult.deletedCount;
+        break;
+
+      case 'updatePriority':
+        const { priority } = req.body;
+        if (!priority || !['low', 'medium', 'high', 'urgent'].includes(priority)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Valid priority is required for priority update'
+          });
+        }
+        updateResult = await Contact.updateMany(
+          { _id: { $in: validIds } },
+          { priority }
+        );
+        break;
+
+      case 'assign':
+        const { assignedTo } = req.body;
+        if (!assignedTo || !mongoose.Types.ObjectId.isValid(assignedTo)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Valid assigned user ID is required'
+          });
+        }
+        updateResult = await Contact.updateMany(
+          { _id: { $in: validIds } },
+          { 
+            assignedTo,
+            status: 'in-progress'
+          }
+        );
+        break;
+
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid action specified'
+        });
+    }
+
+    // Log the bulk action for audit trail
+    console.log(`✅ Bulk action performed: ${action} on ${validIds.length} contacts by user ${req.user._id}`);
+
+    res.json({
+      success: true,
+      message: `Bulk ${action} completed successfully`,
+      data: {
+        action,
+        affectedCount: action === 'delete' ? deletedCount : updateResult.modifiedCount,
+        totalRequested: validIds.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Bulk action error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to perform bulk action',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 // @desc    Perform bulk actions on multiple contacts
 // @access  Private/Admin
 router.post('/bulk-actions', adminAuth, async (req, res) => {

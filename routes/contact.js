@@ -193,13 +193,62 @@ router.post('/', contactLimiter, validateContactForm, async (req, res) => {
       </div>
     `;
 
-    // Send email notifications
+    // Send enhanced email notifications
     try {
+      // Enhanced admin notification email
+      const adminNotificationSubject = `🔔 New Contact Submission - ${subjectMapping[subject]}`;
+      const enhancedAdminContent = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 700px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px;">
+          <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">New Contact Submission</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">Priority: ${subject === 'support' ? 'High' : 'Medium'}</p>
+            </div>
+            
+            <div style="padding: 30px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
+                  <h3 style="margin: 0 0 10px 0; color: #333; font-size: 16px;">Contact Details</h3>
+                  <p style="margin: 5px 0; color: #666;"><strong>Name:</strong> ${name}</p>
+                  <p style="margin: 5px 0; color: #666;"><strong>Email:</strong> ${email}</p>
+                  <p style="margin: 5px 0; color: #666;"><strong>Subject:</strong> ${subjectMapping[subject]}</p>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #764ba2;">
+                  <h3 style="margin: 0 0 10px 0; color: #333; font-size: 16px;">Submission Info</h3>
+                  <p style="margin: 5px 0; color: #666;"><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+                  <p style="margin: 5px 0; color: #666;"><strong>IP:</strong> ${clientIP}</p>
+                  <p style="margin: 5px 0; color: #666;"><strong>ID:</strong> ${contact._id}</p>
+                </div>
+              </div>
+              
+              <div style="background: #fff; padding: 25px; border: 2px solid #f1f3f4; border-radius: 10px;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Message</h3>
+                <p style="white-space: pre-wrap; line-height: 1.8; color: #444; font-size: 15px; margin: 0;">${message}</p>
+              </div>
+              
+              <div style="margin-top: 25px; text-align: center;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/contact-submissions" 
+                   style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
+                  View in Admin Dashboard →
+                </a>
+              </div>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-top: 1px solid #e9ecef; text-align: center;">
+              <p style="margin: 0; color: #666; font-size: 14px;">
+                📧 This is an automated notification from your contact management system
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+
       // Send notification to admin
       await enhancedEmailService.sendEmail({
-        to: process.env.ADMIN_EMAIL || 'admin@yourstore.com',
-        subject: emailSubject,
-        html: adminEmailContent
+        to: process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL || 'admin@yourstore.com',
+        subject: adminNotificationSubject,
+        html: enhancedAdminContent
       });
 
       // Send confirmation to customer
@@ -209,7 +258,7 @@ router.post('/', contactLimiter, validateContactForm, async (req, res) => {
         html: customerEmailContent
       });
 
-      console.log(`✅ Contact form emails sent for submission ${contact._id}`);
+      console.log(`✅ Enhanced contact form emails sent for submission ${contact._id}`);
     } catch (emailError) {
       console.error('❌ Error sending contact form emails:', emailError);
       // Don't fail the request if email sending fails
