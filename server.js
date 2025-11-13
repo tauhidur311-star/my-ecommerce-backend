@@ -25,6 +25,16 @@ const { validate } = require('./utils/validation');
 const errorHandler = require('./middleware/errorHandler');
 const connectDB = require('./config/database');
 
+// Enhanced Security Middleware
+const { enhancedSecurityHeaders } = require('./middleware/securityHeaders');
+const { enhancedSanitize } = require('./middleware/enhancedSanitize');
+const { conditionalCSRF, generateCSRFToken } = require('./middleware/enhancedCSRF');
+const { 
+  apiLimiter: enhancedApiLimiter, 
+  authLimiter: enhancedAuthLimiter,
+  recordRateLimit 
+} = require('./middleware/enhancedRateLimit');
+
 const app = express();
 
 // Trust proxy setting - Required for proper IP detection behind reverse proxies (like Render, Heroku, etc.)
@@ -75,6 +85,21 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(compression()); // Compress responses
+
+// Enhanced Security Headers
+app.use(enhancedSecurityHeaders);
+
+// Enhanced Rate Limiting and Analytics
+app.use(recordRateLimit);
+app.use('/api/', enhancedApiLimiter);
+
+// Enhanced Input Sanitization
+app.use(enhancedSanitize);
+
+// CSRF Protection for state-changing requests
+app.use(conditionalCSRF());
+app.use(generateCSRFToken());
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -171,6 +196,9 @@ app.use('/api/notifications', require('./routes/notifications'));
 
 // Search routes
 app.use('/api/search', require('./routes/search'));
+
+// Enhanced Authentication routes
+app.use('/api/auth/enhanced', require('./routes/enhancedAuth'));
 
 // Two-Factor Authentication routes
 app.use('/api/auth/2fa', require('./routes/twoFactorAuth'));

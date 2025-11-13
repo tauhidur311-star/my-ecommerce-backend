@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -88,6 +90,10 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  lastTokenInvalidation: {
+    type: Date,
+    default: null
+  },
   // Two-Factor Authentication
   twoFactorSecret: {
     type: String,
@@ -150,6 +156,44 @@ const userSchema = new mongoose.Schema({
   emailVerifiedAt: {
     type: Date,
     default: null
+  },
+  // Enhanced Security Fields
+  allowedIPs: [{
+    ip: String,
+    description: String,
+    addedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  suspiciousActivity: {
+    count: {
+      type: Number,
+      default: 0
+    },
+    lastDetected: Date,
+    details: [String]
+  },
+  passwordHistory: [{
+    hash: String,
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  securitySettings: {
+    requireTwoFactor: {
+      type: Boolean,
+      default: false
+    },
+    ipWhitelistEnabled: {
+      type: Boolean,
+      default: false
+    },
+    sessionTimeout: {
+      type: Number,
+      default: 24 * 60 * 60 * 1000 // 24 hours in ms
+    }
   }
 }, { 
   timestamps: true,

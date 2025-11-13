@@ -1,18 +1,27 @@
 const rateLimit = require('express-rate-limit');
 const slowDown = require('express-slow-down');
-const MongoStore = require('rate-limit-mongo');
+const SecurityLog = require('../models/SecurityLog');
 
-// Redis alternative using MongoDB for rate limiting storage
-const createMongoStore = () => {
+// Enhanced logging for rate limit violations
+const logRateLimitViolation = async (req, info) => {
   try {
-    return new MongoStore({
-      uri: process.env.MONGODB_URI,
-      collectionName: 'rate_limits',
-      expireTimeMs: 15 * 60 * 1000, // 15 minutes
+    await SecurityLog.logEvent({
+      action: 'rate_limit_exceeded',
+      userId: req.user?.userId || null,
+      ip: req.ip,
+      userAgent: req.get('User-Agent') || '',
+      details: {
+        endpoint: req.path,
+        method: req.method,
+        limit: info.limit,
+        current: info.current,
+        remaining: info.remaining,
+        resetTime: new Date(info.resetTime)
+      },
+      severity: info.current > info.limit * 1.5 ? 'high' : 'medium'
     });
   } catch (error) {
-    console.warn('MongoDB store for rate limiting failed, falling back to memory store');
-    return undefined;
+    console.error('Failed to log rate limit violation:', error);
   }
 };
 
@@ -51,7 +60,15 @@ const createRateLimit = (options = {}) => {
       // Skip rate limiting for admin users
       return req.user?.role === 'admin';
     }),
-    handler: handler || ((req, res) => {
+    handler: handler || ((req, res, next, options) => {
+      // Log rate limit violation
+      logRateLimitViolation(req, {
+        limit: options.max,
+        current: req.rateLimit?.current || 0,
+        remaining: req.rateLimit?.remaining || 0,
+        resetTime: req.rateLimit?.resetTime || Date.now()
+      });
+      
       res.status(429).json({
         success: false,
         error: message,
@@ -104,7 +121,27 @@ const authLimiter = createRateLimit({
 const passwordResetLimiter = createRateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 3, // limit each IP to 3 password reset requests per hour
-  message: 'Too many password reset requests, please try again later.'
+  message: 'Too many password reset requests, please try again later.',
+  handler: async (req, res, next, options) => {
+    await SecurityLog.logEvent({
+      action: 'suspicious_activity',
+      userId: null,
+      ip: req.ip,
+      userAgent: req.get('User-Agent') || '',
+      details: {
+        endpoint: req.path,
+        method: req.method,
+        reason: 'excessive_password_reset_attempts'
+      },
+      severity: 'high'
+    });
+    
+    res.status(429).json({
+      success: false,
+      error: 'Too many password reset requests, please try again later.',
+      retryAfter: Math.ceil(options.windowMs / 1000)
+    });
+  }
 });
 
 // Rate limiting for file uploads
