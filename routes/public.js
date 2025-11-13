@@ -10,12 +10,15 @@ const { auth } = require('../middleware/auth');
 const { adminAuth } = require('../middleware/adminAuth');
 
 // Public routes (no authentication required)
-router.get('/theme/:pageType', getPublishedTheme);
-router.get('/theme/custom/:slug', getPublishedTheme);
-router.get('/pages', getPublishedPages);
+// IMPORTANT: Specific routes must come BEFORE parameterized routes
 
 // SSE endpoint for theme updates (public access)
 router.get('/theme/updates', themeUpdatesSSE);
+
+// Published theme routes (parameterized - must come after specific routes)
+router.get('/theme/:pageType', getPublishedTheme);
+router.get('/theme/custom/:slug', getPublishedTheme);
+router.get('/pages', getPublishedPages);
 
 // Test endpoint to verify route is working
 router.get('/test-sse', (req, res) => {
