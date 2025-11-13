@@ -1,0 +1,11 @@
+{
+  "note": "Add these dependencies to package.json",
+  "dependencies": {
+    "ua-parser-js": "^1.0.37",
+    "recharts": "^2.8.0"
+  },
+  "installation_commands": [
+    "npm install ua-parser-js",
+    "npm install recharts"
+  ]
+}

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Contact = require('../models/Contact');
+const { broadcastNewSubmission } = require('../controllers/analyticsController');
 
 // Try to load express-validator, fallback to custom validation
 let body, validationResult;
@@ -112,6 +113,13 @@ router.post('/', contactLimiter, validateContactForm, async (req, res) => {
     // Save to database
     const contact = new Contact(contactData);
     await contact.save();
+
+    // Broadcast real-time update for analytics
+    try {
+      broadcastNewSubmission(contact);
+    } catch (broadcastError) {
+      console.error('Error broadcasting new submission:', broadcastError);
+    }
 
     // Prepare email content
     const subjectMapping = {

@@ -24,6 +24,7 @@ const sanitizeInput = require('./middleware/sanitize');
 const { validate } = require('./utils/validation');
 const errorHandler = require('./middleware/errorHandler');
 const connectDB = require('./config/database');
+const { trackVisitor } = require('./middleware/analyticsTracker');
 
 // Enhanced Security Middleware (with fallbacks)
 let enhancedSecurityHeaders, enhancedSanitize, conditionalCSRF, generateCSRFToken;
@@ -121,6 +122,9 @@ app.use(generateCSRFToken());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Analytics tracking middleware (before routes)
+app.use(trackVisitor);
+
 // Serve static files (for Mailjet verification file)
 app.use(express.static('public'));
 
@@ -202,6 +206,9 @@ app.use('/api/upload', require('./routes/upload'));
 
 // Analytics routes
 app.use('/api/analytics', require('./routes/analytics'));
+
+// Real-time admin analytics routes
+app.use('/api/admin/analytics', require('./routes/adminAnalyticsRoutes'));
 
 // Payment routes
 app.use('/api/payments', require('./routes/payments'));
