@@ -193,18 +193,7 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', passwordResetLimiter);
 app.use('/api/auth/reset-password', passwordResetLimiter);
 
-// Connect to MongoDB and wait for connection
-const startDatabase = async () => {
-  try {
-    await connectDB();
-    logger.info('Database connection established');
-  } catch (error) {
-    logger.logError(error, { context: 'database_startup' });
-    process.exit(1);
-  }
-};
-
-startDatabase();
+// Database connection will be handled in the main startup function
 
 // Import models
 const User = require('./models/User');
@@ -413,6 +402,10 @@ app.use((err, req, res, next) => {
 // Server startup with enhanced error handling
 const startServer = async () => {
   try {
+    // Connect to MongoDB first
+    await connectDB();
+    logger.info('Database connection established');
+    
     const PORT = process.env.PORT || 5000;
     
     const server = app.listen(PORT, () => {
