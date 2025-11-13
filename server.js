@@ -218,6 +218,7 @@ const routes = [
   { path: '/api/admin', module: './routes/admin', cache: false },
   { path: '/api/notifications', module: './routes/notifications', cache: false },
   { path: '/api/search', module: './routes/search', cache: true },
+  { path: '/api/design', module: './routes/design', cache: false },
 ];
 
 // Load routes with error handling
