@@ -241,6 +241,10 @@ app.use('/api/public', require('./routes/public'));
 // Contact form routes
 app.use('/api/contact', require('./routes/contact'));
 
+// Admin contact management routes
+app.use('/api/admin/contacts', require('./routes/admin/contacts'));
+app.use('/api/admin/contact-info', require('./routes/admin/contactInfo'));
+
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,

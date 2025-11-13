@@ -96,6 +96,19 @@ const contactSchema = new mongoose.Schema({
     min: 0,
     max: 100,
     default: 0
+  },
+  isRead: {
+    type: Boolean,
+    default: false
+  },
+  readAt: {
+    type: Date,
+    default: null
+  },
+  readBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   }
 }, {
   timestamps: true,
@@ -110,6 +123,7 @@ contactSchema.index({ subject: 1 });
 contactSchema.index({ createdAt: -1 });
 contactSchema.index({ assignedTo: 1 });
 contactSchema.index({ isSpam: 1 });
+contactSchema.index({ isRead: 1 });
 
 // Compound indexes
 contactSchema.index({ status: 1, createdAt: -1 });
