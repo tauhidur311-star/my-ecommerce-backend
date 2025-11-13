@@ -26,6 +26,17 @@ const errorHandler = require('./middleware/errorHandler');
 const connectDB = require('./config/database');
 const { trackVisitor } = require('./middleware/analyticsTracker');
 
+// Performance monitoring (with fallback)
+let performanceMonitor, getPerformanceSummary;
+try {
+  ({ performanceMonitor, getPerformanceSummary } = require('./middleware/performanceMonitor'));
+  console.log('✅ Performance monitoring loaded');
+} catch (error) {
+  console.warn('⚠️  Performance monitoring not available:', error.message);
+  performanceMonitor = (req, res, next) => next(); // Fallback
+  getPerformanceSummary = () => ({}); // Fallback
+}
+
 // Enhanced Security Middleware (with fallbacks)
 let enhancedSecurityHeaders, enhancedSanitize, conditionalCSRF, generateCSRFToken;
 let enhancedApiLimiter, enhancedAuthLimiter, recordRateLimit;
@@ -145,6 +156,9 @@ app.use('/uploads', (req, res, next) => {
 
 // Security middleware
 app.use(...sanitizeInput);
+
+// Performance monitoring middleware
+app.use(performanceMonitor);
 
 // Logging
 if (process.env.NODE_ENV !== 'production') {
@@ -268,6 +282,31 @@ try {
   console.warn('⚠️  Enhanced SSE routes not available:', error.message);
 }
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    version: process.version
+  });
+});
+
+// Performance monitoring endpoint
+app.get('/api/admin/performance', (req, res) => {
+  const summary = getPerformanceSummary();
+  res.json({
+    success: true,
+    data: {
+      summary,
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      timestamp: new Date().toISOString()
+    }
+  });
+});
+
 // Enhanced Admin Routes
 try {
   const enhancedAdminRoutes = require('./routes/enhancedAdminRoutes');
@@ -284,6 +323,15 @@ try {
   console.log('✅ Marketing routes loaded');
 } catch (error) {
   console.warn('⚠️  Marketing routes not available:', error.message);
+}
+
+// Performance Monitoring Routes
+try {
+  const performanceRoutes = require('./routes/performanceRoutes');
+  app.use('/api/admin/performance', performanceRoutes);
+  console.log('✅ Performance monitoring routes loaded');
+} catch (error) {
+  console.warn('⚠️  Performance routes not available:', error.message);
 }
 
 // Enhanced notification routes

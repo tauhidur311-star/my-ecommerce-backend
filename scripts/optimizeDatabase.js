@@ -72,13 +72,15 @@ const optimizeDatabase = async () => {
       }
     );
     
+    // Simple stock tracking index (removed $expr for compatibility)
     await db.collection('products').createIndex(
       { stock: 1, lowStockThreshold: 1 },
       { 
         name: 'stock_alert_tracking',
         background: true,
         partialFilterExpression: { 
-          $expr: { $lte: ['$stock', '$lowStockThreshold'] }
+          stock: { $exists: true, $gte: 0 },
+          lowStockThreshold: { $exists: true, $gte: 0 }
         }
       }
     );
