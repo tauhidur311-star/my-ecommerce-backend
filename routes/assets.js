@@ -3,12 +3,11 @@ const router = express.Router();
 const {
   upload,
   getAssets,
-  uploadAssets,
+  uploadAsset,
+  uploadMultipleAssets,
   deleteAsset,
-  updateAsset,
-  getFolders,
-  bulkDeleteAssets,
-  getAssetAnalytics
+  getAssetById,
+  getFolders
 } = require('../controllers/enhancedAssetController');
 const { auth } = require('../middleware/auth');
 const { adminAuth } = require('../middleware/adminAuth');
@@ -19,11 +18,10 @@ router.use(adminAuth);
 
 // Asset routes
 router.get('/', getAssets);
-router.post('/upload', upload.array('files', 10), uploadAssets); // Support multiple files
+router.post('/upload', upload.single('file'), uploadAsset); // Single file upload
+router.post('/upload-multiple', upload.array('files', 10), uploadMultipleAssets); // Multiple files
 router.get('/folders', getFolders);
-router.get('/analytics', getAssetAnalytics);
-router.put('/:id', updateAsset);
+router.get('/:id', getAssetById);
 router.delete('/:id', deleteAsset);
-router.post('/bulk-delete', bulkDeleteAssets);
 
 module.exports = router;
