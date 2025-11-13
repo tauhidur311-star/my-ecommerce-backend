@@ -204,17 +204,6 @@ const trackVisitorEvent = async (sessionId, page, referrer, userAgent, country, 
 
 // Helper function to broadcast new submission
 const broadcastNewSubmission = (submission) => {
-  broadcast('new-submission', {
-    submissionId: submission._id,
-    name: submission.name,
-    email: submission.email,
-    subject: submission.subject,
-    submittedAt: submission.createdAt
-  });
-};
-
-// Helper function to broadcast new submission
-const broadcastNewSubmission = (submission) => {
   try {
     broadcast('new-submission', {
       id: submission._id,
