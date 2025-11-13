@@ -20,6 +20,7 @@ class CacheManager {
         });
 
         this.client.on('error', (err) => {
+          const logger = require('./structuredLogger');
           logger.warn('Redis connection error, falling back to memory cache', { error: err.message });
           this.isConnected = false;
         });

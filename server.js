@@ -193,8 +193,18 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', passwordResetLimiter);
 app.use('/api/auth/reset-password', passwordResetLimiter);
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB and wait for connection
+const startDatabase = async () => {
+  try {
+    await connectDB();
+    logger.info('Database connection established');
+  } catch (error) {
+    logger.logError(error, { context: 'database_startup' });
+    process.exit(1);
+  }
+};
+
+startDatabase();
 
 // Import models
 const User = require('./models/User');

@@ -35,7 +35,7 @@ const connectDB = async () => {
       // SSL settings for production
       ...(process.env.NODE_ENV === 'production' && {
         ssl: true,
-        sslValidate: true
+        tlsAllowInvalidCertificates: false
       })
     };
 
