@@ -259,6 +259,33 @@ app.use('/api/admin', require('./routes/admin'));
 // Email campaign routes
 app.use('/api/admin/email-campaigns', require('./routes/emailCampaignRoutes'));
 
+// Enhanced SSE Routes (improved connection handling)
+try {
+  const enhancedSSERoutes = require('./routes/enhancedSSERoutes');
+  app.use('/api/sse', enhancedSSERoutes);
+  console.log('✅ Enhanced SSE routes loaded');
+} catch (error) {
+  console.warn('⚠️  Enhanced SSE routes not available:', error.message);
+}
+
+// Enhanced Admin Routes
+try {
+  const enhancedAdminRoutes = require('./routes/enhancedAdminRoutes');
+  app.use('/api/admin', enhancedAdminRoutes);
+  console.log('✅ Enhanced admin routes loaded');
+} catch (error) {
+  console.warn('⚠️  Enhanced admin routes not available:', error.message);
+}
+
+// Marketing Routes  
+try {
+  const marketingRoutes = require('./routes/marketingRoutes');
+  app.use('/api/admin/marketing', marketingRoutes);
+  console.log('✅ Marketing routes loaded');
+} catch (error) {
+  console.warn('⚠️  Marketing routes not available:', error.message);
+}
+
 // Enhanced notification routes
 try {
   const notificationRoutes = require('./routes/notifications');
