@@ -137,11 +137,39 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Emergency CORS fix - add headers to ALL responses
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  const allowedOrigins = [
+    'https://my-ecommerce-frontend-1osx.onrender.com',
+    'https://my-ecommerce-frontend.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:3001'
+  ];
+  
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  } else {
+    res.header('Access-Control-Allow-Origin', 'https://my-ecommerce-frontend-1osx.onrender.com');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-Token, Accept, Origin, Cache-Control');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+
 // Handle preflight OPTIONS requests explicitly
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.get('Origin') || '*');
+  res.header('Access-Control-Allow-Origin', req.get('Origin') || 'https://my-ecommerce-frontend-1osx.onrender.com');
   res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-Token, Accept, Origin');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-Token, Accept, Origin, Cache-Control');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.sendStatus(200);
 });
@@ -336,10 +364,21 @@ app.get('/health', async (req, res) => {
     version: process.version,
     environment: process.env.NODE_ENV,
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    cache: cache.getStats()
+    cache: cache.getStats(),
+    cors: 'enabled'
   };
   
   res.json(healthData);
+});
+
+// Simple CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'CORS is working!',
+    origin: req.get('Origin'),
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Enhanced performance monitoring endpoint

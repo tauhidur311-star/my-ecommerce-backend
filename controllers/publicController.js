@@ -317,16 +317,13 @@ const getPreviewTheme = async (req, res) => {
 const themeUpdatesSSE = (req, res) => {
   console.log('🚀 THEME UPDATES SSE ENDPOINT HIT - Starting SSE connection');
   
-  // Render-compatible SSE headers
+  // Render-compatible SSE headers (CORS handled by main middleware)
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
     'Expires': '0',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': req.headers.origin || '*',
-    'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Headers': 'Cache-Control, Content-Type',
     'X-Accel-Buffering': 'no' // Disable Nginx buffering for SSE
   });
   
