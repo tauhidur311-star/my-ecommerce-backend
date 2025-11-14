@@ -1,4 +1,4 @@
-const csrf = require('csurf');
+const csrf = require('csrf');
 const SecurityLog = require('../models/SecurityLog');
 
 // Enhanced CSRF protection with logging
