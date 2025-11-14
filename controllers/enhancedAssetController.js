@@ -35,9 +35,19 @@ const upload = multer({
       'video/mp4',
       'video/webm',
       'video/ogg',
+      'video/mov',
+      'video/avi',
       'application/pdf',
       'text/plain',
-      'application/json'
+      'application/json',
+      // Enhanced theme editor specific formats
+      'text/css',
+      'text/javascript',
+      'application/javascript',
+      'font/woff',
+      'font/woff2',
+      'application/font-woff',
+      'application/font-woff2'
     ];
     
     if (allowedTypes.includes(file.mimetype)) {

@@ -24,6 +24,25 @@ const sectionSettingsSchema = new mongoose.Schema({
   customCSS: {
     type: String,
     default: ''
+  },
+  animation: {
+    type: {
+      type: String,
+      enum: ['none', 'fadeIn', 'slideUp', 'slideDown', 'slideLeft', 'slideRight', 'zoom', 'bounce'],
+      default: 'none'
+    },
+    duration: {
+      type: Number,
+      default: 0.5,
+      min: 0.1,
+      max: 3
+    },
+    delay: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 2
+    }
   }
 }, { _id: false });
 
@@ -36,7 +55,11 @@ const sectionSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['hero', 'features', 'gallery', 'testimonials', 'contact', 'newsletter', 'custom']
+    enum: [
+      'hero', 'features', 'gallery', 'testimonials', 'contact', 'newsletter', 
+      'pricing', 'faq', 'team', 'stats', 'timeline', 'logo-grid', 'cta-block',
+      'video', 'custom'
+    ]
   },
   content: {
     type: sectionContentSchema,
@@ -256,19 +279,19 @@ designSchema.statics.validateSectionContent = function(type, content) {
   const validationRules = {
     hero: {
       required: ['title'],
-      optional: ['subtitle', 'ctaText', 'ctaUrl', 'backgroundImage', 'alignment', 'height']
+      optional: ['subtitle', 'primaryCTA', 'secondaryCTA', 'backgroundImage', 'alignment', 'height']
     },
     features: {
       required: ['title', 'items'],
-      optional: []
+      optional: ['subtitle', 'layout']
     },
     gallery: {
       required: ['images'],
-      optional: ['title', 'columns', 'showTitles']
+      optional: ['title', 'columns', 'showTitles', 'lightbox']
     },
     testimonials: {
       required: ['testimonials'],
-      optional: ['title']
+      optional: ['title', 'subtitle', 'layout']
     },
     contact: {
       required: [],
@@ -277,6 +300,38 @@ designSchema.statics.validateSectionContent = function(type, content) {
     newsletter: {
       required: ['title'],
       optional: ['subtitle', 'placeholder', 'buttonText', 'successMessage']
+    },
+    pricing: {
+      required: ['plans'],
+      optional: ['title', 'subtitle', 'currency', 'period']
+    },
+    faq: {
+      required: ['items'],
+      optional: ['title', 'subtitle', 'searchable']
+    },
+    team: {
+      required: ['members'],
+      optional: ['title', 'subtitle', 'layout']
+    },
+    stats: {
+      required: ['items'],
+      optional: ['title', 'subtitle', 'layout']
+    },
+    timeline: {
+      required: ['items'],
+      optional: ['title', 'subtitle', 'orientation']
+    },
+    'logo-grid': {
+      required: ['logos'],
+      optional: ['title', 'subtitle', 'columns']
+    },
+    'cta-block': {
+      required: ['title', 'primaryCTA'],
+      optional: ['subtitle', 'secondaryCTA', 'backgroundImage']
+    },
+    video: {
+      required: ['videoUrl'],
+      optional: ['title', 'subtitle', 'poster', 'autoplay']
     }
   };
 
