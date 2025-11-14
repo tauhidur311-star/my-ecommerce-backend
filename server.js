@@ -260,8 +260,9 @@ const additionalRoutes = [
   { path: '/api/admin/contact-info', module: './routes/admin/contactInfo' },
   { path: '/api/admin/email-templates', module: './routes/admin/emailTemplates' },
   { path: '/api/admin/email-campaigns', module: './routes/emailCampaignRoutes' },
-  { path: '/api/templates', module: './routes/templates' },
-  { path: '/api/export', module: './routes/exports' },
+  // Temporarily disabled - heavy dependencies
+  // { path: '/api/templates', module: './routes/templates' },
+  // { path: '/api/export', module: './routes/exports' },
 ];
 
 additionalRoutes.forEach(({ path, module }) => {
