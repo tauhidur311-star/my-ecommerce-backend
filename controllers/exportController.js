@@ -8,7 +8,7 @@ const Design = require('../models/Design');
 const ErrorResponse = require('../utils/ErrorResponse');
 const asyncHandler = require('../middleware/asyncHandler');
 const logger = require('../utils/logger');
-const puppeteer = require('puppeteer');
+const { chromium } = require('playwright-core');
 const fs = require('fs').promises;
 const path = require('path');
 const archiver = require('archiver');
@@ -270,23 +270,23 @@ exports.exportPDF = asyncHandler(async (req, res) => {
     // Generate HTML content for PDF
     const htmlContent = await generateStaticHTML(design, exportRecord.options);
 
-    // Launch Puppeteer
-    browser = await puppeteer.launch({
-      headless: 'new',
+    // Launch Playwright
+    browser = await chromium.launch({
+      headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
-    const page = await browser.newPage();
-
-    // Set viewport for consistent rendering
-    await page.setViewport({
-      width: options.width || 1200,
-      height: options.height || 800
+    const context = await browser.newContext({
+      viewport: {
+        width: options.width || 1200,
+        height: options.height || 800
+      }
     });
+    const page = await context.newPage();
 
     // Set HTML content
     await page.setContent(htmlContent, {
-      waitUntil: ['networkidle0', 'domcontentloaded']
+      waitUntil: 'networkidle'
     });
 
     // PDF generation options

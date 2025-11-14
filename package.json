@@ -48,7 +48,10 @@
     "ua-parser-js": "^1.0.37",
     "validator": "^13.11.0",
     "winston": "^3.18.3",
-    "xss-clean": "^0.1.4"
+    "xss-clean": "^0.1.4",
+    "playwright-core": "^1.40.0",
+    "archiver": "^6.0.1",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "jest": "^29.7.0",
