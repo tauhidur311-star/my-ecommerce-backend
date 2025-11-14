@@ -284,6 +284,13 @@ class EmailScheduler {
   // Resume scheduled campaigns after server restart
   async resumeScheduledCampaigns() {
     try {
+      // Wait for database connection
+      const mongoose = require('mongoose');
+      if (mongoose.connection.readyState !== 1) {
+        console.log('⏳ Waiting for database connection before resuming campaigns...');
+        return;
+      }
+
       const scheduledCampaigns = await EmailCampaign.find({
         status: 'scheduled',
         scheduledAt: { $gt: new Date() },
