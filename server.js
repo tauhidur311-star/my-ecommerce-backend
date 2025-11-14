@@ -269,9 +269,12 @@ const routes = [
   { path: '/api/admin', module: './routes/admin', cache: false },
   { path: '/api/notifications', module: './routes/notifications', cache: false },
   { path: '/api/search', module: './routes/search', cache: true },
-  { path: '/api/design', module: './routes/design', cache: false },
-  { path: '/api/collaboration', module: './routes/collaboration', cache: false },
-  { path: '/api/design-analytics', module: './routes/design-analytics', cache: true },
+  // Theme Editor Routes
+  { path: '/api/pages', module: './routes/pages', cache: false },
+  { path: '/api/pages', module: './routes/sections', cache: false },
+  { path: '/api/pages', module: './routes/revisions', cache: false },
+  { path: '/api/pages', module: './routes/comments', cache: false },
+  { path: '/api/media', module: './routes/media', cache: false },
 ];
 
 // Load routes with error handling
@@ -304,7 +307,6 @@ try {
 // Additional routes with error handling
 const additionalRoutes = [
   { path: '/api/reviews', module: './routes/reviews' },
-  { path: '/api/admin/themes', module: './routes/theme' },
   { path: '/api/admin/assets', module: './routes/assets' },
   { path: '/api/admin/reusable-blocks', module: './routes/reusableBlocks' },
   { path: '/api/public', module: './routes/public' },

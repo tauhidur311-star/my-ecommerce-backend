@@ -116,6 +116,53 @@ const initializeSocket = (server) => {
       socket.on('subscribe_admin_updates', () => {
         socket.join('admin_dashboard');
       });
+
+      // Real-time inventory updates
+      socket.on('subscribe_inventory_updates', () => {
+        socket.join('inventory_updates');
+      });
+
+      socket.on('unsubscribe_inventory_updates', () => {
+        socket.leave('inventory_updates');
+      });
+
+      // Handle inventory stock updates
+      socket.on('update_product_stock', async (data) => {
+        try {
+          const { productId, newStock, operation, reason } = data;
+          
+          // Broadcast stock update to all admin users
+          socket.to('inventory_updates').emit('inventory_stock_updated', {
+            productId,
+            newStock,
+            operation,
+            reason,
+            updatedBy: socket.user.name,
+            timestamp: new Date().toISOString()
+          });
+
+          // Log the stock update for audit trail
+          console.log(`Stock updated by ${socket.user.name}: Product ${productId}, Stock: ${newStock}, Operation: ${operation}`);
+        } catch (error) {
+          console.error('Error updating product stock:', error);
+          socket.emit('inventory_error', { message: 'Failed to update stock', error: error.message });
+        }
+      });
+
+      // Handle low stock alerts
+      socket.on('inventory_low_stock_alert', (data) => {
+        const { productId, productName, currentStock, threshold } = data;
+        
+        // Notify all admins about low stock
+        socket.to('admins').emit('low_stock_alert', {
+          productId,
+          productName,
+          currentStock,
+          threshold,
+          alertedBy: socket.user.name,
+          timestamp: new Date().toISOString()
+        });
+      });
     }
 
     // Handle disconnection
@@ -182,6 +229,41 @@ const notifyAdminDashboard = (data) => {
   }
 };
 
+// Inventory-specific notification functions
+const notifyInventoryUpdate = (data) => {
+  if (io) {
+    io.to('inventory_updates').emit('inventory_updated', data);
+  }
+};
+
+const notifyStockUpdate = (productId, stockData) => {
+  if (io) {
+    io.to('inventory_updates').emit('stock_updated', {
+      productId,
+      ...stockData,
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+const notifyLowStockAlert = (alertData) => {
+  if (io) {
+    io.to('admins').emit('low_stock_alert', {
+      ...alertData,
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+const broadcastInventoryChange = (changeData) => {
+  if (io) {
+    io.to('inventory_updates').emit('inventory_change', {
+      ...changeData,
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
 module.exports = {
   initializeSocket,
   getIO,
@@ -189,5 +271,9 @@ module.exports = {
   notifyAdmins,
   notifyOrderUpdate,
   broadcastToAll,
-  notifyAdminDashboard
+  notifyAdminDashboard,
+  notifyInventoryUpdate,
+  notifyStockUpdate,
+  notifyLowStockAlert,
+  broadcastInventoryChange
 };
