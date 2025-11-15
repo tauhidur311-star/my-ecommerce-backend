@@ -1,3 +1,4 @@
+const Page = require('../models/Page');
 const Template = require('../models/Template');
 const Theme = require('../models/Theme');
 
@@ -6,38 +7,90 @@ const getPublishedTheme = async (req, res) => {
   try {
     const { pageType, slug } = req.params;
     
-    // Find active theme or use first available theme
+    console.log('🌐 Fetching published theme for:', pageType, slug || '(no slug)');
+    
+    // First try to find page created by ThemeEditor
+    const query = {
+      template_type: pageType,
+      published: true
+    };
+    
+    if (slug) {
+      query.slug = slug;
+    }
+    
+    const page = await Page.findOne(query)
+      .select('sections theme_settings page_name slug template_type published_at updatedAt');
+    
+    if (page) {
+      console.log('✅ Found ThemeEditor page:', page.page_name);
+      
+      // Convert Page model data to frontend format
+      const themeData = {
+        success: true,
+        theme: {
+          type: page.template_type,
+          name: page.page_name,
+          sections: page.sections.map(section => ({
+            id: section.section_id,
+            type: section.type,
+            content: section.content || '',
+            visible: section.visible,
+            settings: section.settings,
+            blocks: section.blocks ? section.blocks.map(block => ({
+              id: block.block_id,
+              type: block.type,
+              content: block.content,
+              settings: block.settings
+            })) : []
+          })),
+          theme_settings: page.theme_settings || {}
+        },
+        lastUpdated: page.updatedAt,
+        publishedAt: page.published_at
+      };
+      
+      // Set cache headers
+      res.set({
+        'Cache-Control': 'no-store',
+        'ETag': `"page-${pageType}-${page.updatedAt.getTime()}"`,
+        'Last-Modified': page.updatedAt.toUTCString()
+      });
+      
+      return res.json(themeData);
+    }
+    
+    // Fallback to old Template/Theme system
     let activeTheme = await Theme.findOne({ isActive: true });
     
     if (!activeTheme) {
-      // If no active theme, use the first theme and make it active
       activeTheme = await Theme.findOne({});
       if (activeTheme) {
         activeTheme.isActive = true;
         await activeTheme.save();
-        console.log('Auto-activated theme:', activeTheme.name);
+        console.log('Auto-activated fallback theme:', activeTheme.name);
       } else {
         return res.status(404).json({
           success: false,
-          message: 'No themes found in database'
+          message: `No published ${pageType} page found`
         });
       }
     }
     
-    // Build query based on page type
-    const query = {
+    // Build template query
+    const templateQuery = {
       themeId: activeTheme._id,
       status: 'published'
     };
     
     if (pageType === 'custom' && slug) {
-      query.pageType = 'custom';
-      query.slug = slug;
+      templateQuery.pageType = 'custom';
+      templateQuery.slug = slug;
     } else {
-      query.pageType = pageType;
+      templateQuery.pageType = pageType;
     }
     
-    const template = await Template.findOne(query)
+    const template = await Template.findOne(templateQuery)
       .select('publishedJson seoTitle seoDescription seoKeywords updatedAt');
     
     // Set cache headers for published content

@@ -274,11 +274,11 @@ const routes = [
   { path: '/api/admin', module: './routes/admin', cache: false },
   { path: '/api/notifications', module: './routes/notifications', cache: false },
   { path: '/api/search', module: './routes/search', cache: true },
-  // Theme Editor Routes
+  // Theme Editor Routes - FIXED: Correct route paths
   { path: '/api/pages', module: './routes/pages', cache: false },
-  { path: '/api/pages', module: './routes/sections', cache: false },
-  { path: '/api/pages', module: './routes/revisions', cache: false },
-  { path: '/api/pages', module: './routes/comments', cache: false },
+  { path: '/api/sections', module: './routes/sections', cache: false },
+  { path: '/api/revisions', module: './routes/revisions', cache: false },
+  { path: '/api/comments', module: './routes/comments', cache: false },
   { path: '/api/media', module: './routes/media', cache: false },
 ];
 
