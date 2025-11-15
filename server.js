@@ -131,7 +131,20 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token', 'Accept', 'Origin'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'X-CSRF-Token', 
+    'Accept', 
+    'Origin',
+    'Cache-Control',  // ✅ ADD THIS - Fixes CORS cache-control header error
+    'Pragma',
+    'Expires',
+    'If-None-Match',
+    'If-Modified-Since'
+  ],
+  exposedHeaders: ['Content-Length', 'X-Total-Count', 'ETag', 'Last-Modified'],
   preflightContinue: false,
   optionsSuccessStatus: 200
 };
@@ -279,6 +292,15 @@ const routes = [
   { path: '/api/sections', module: './routes/sections', cache: false },
   { path: '/api/revisions', module: './routes/revisions', cache: false },
   { path: '/api/comments', module: './routes/comments', cache: false },
+  
+  // Analytics Routes - NEW
+  { path: '/api/analytics', module: './routes/analytics', cache: false },
+  
+  // Health Check Routes - NEW (No auth required)
+  { path: '/api/health', module: './routes/health', cache: false },
+  
+  // Theme Routes - NEW (Public theme endpoints)
+  { path: '/api', module: './routes/theme', cache: false },
   { path: '/api/media', module: './routes/media', cache: false },
 ];
 

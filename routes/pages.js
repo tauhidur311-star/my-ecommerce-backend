@@ -5,8 +5,8 @@ const Template = require('../models/Template');
 const Revision = require('../models/Revision');
 const Comment = require('../models/Comment');
 const Media = require('../models/Media');
-const auth = require('../middleware/auth');
-const adminAuth = require('../middleware/adminAuth');
+const { auth } = require('../middleware/auth');
+const { adminAuth } = require('../middleware/adminAuth');
 const { body, validationResult } = require('express-validator');
 
 // GET /api/pages - List all pages for user

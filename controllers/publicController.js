@@ -1,6 +1,6 @@
 const Page = require('../models/Page');
-const Template = require('../models/Template');
-const Theme = require('../models/Theme');
+// const Template = require('../models/Template');
+// const Theme = require('../models/Theme');
 
 // Get published theme layout for public pages
 const getPublishedTheme = async (req, res) => {
@@ -60,38 +60,11 @@ const getPublishedTheme = async (req, res) => {
       return res.json(themeData);
     }
     
-    // Fallback to old Template/Theme system
-    let activeTheme = await Theme.findOne({ isActive: true });
-    
-    if (!activeTheme) {
-      activeTheme = await Theme.findOne({});
-      if (activeTheme) {
-        activeTheme.isActive = true;
-        await activeTheme.save();
-        console.log('Auto-activated fallback theme:', activeTheme.name);
-      } else {
-        return res.status(404).json({
-          success: false,
-          message: `No published ${pageType} page found`
-        });
-      }
-    }
-    
-    // Build template query
-    const templateQuery = {
-      themeId: activeTheme._id,
-      status: 'published'
-    };
-    
-    if (pageType === 'custom' && slug) {
-      templateQuery.pageType = 'custom';
-      templateQuery.slug = slug;
-    } else {
-      templateQuery.pageType = pageType;
-    }
-    
-    const template = await Template.findOne(templateQuery)
-      .select('publishedJson seoTitle seoDescription seoKeywords updatedAt');
+    // No page found in ThemeEditor, return 404
+    return res.status(404).json({
+      success: false,
+      message: `No published ${pageType} page found`
+    });
     
     // Set cache headers for published content
     res.set({
