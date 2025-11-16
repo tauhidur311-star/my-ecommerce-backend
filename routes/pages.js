@@ -175,8 +175,11 @@ router.put('/:id', auth, [
     const originalSections = [...page.sections];
     const originalThemeSettings = { ...page.theme_settings };
     
-    // Update fields
+    // ✅ CRITICAL FIX: Update all fields including published flag
     if (req.body.page_name) page.page_name = req.body.page_name;
+    if (req.body.slug) page.slug = req.body.slug;
+    if (req.body.page_type) page.page_type = req.body.page_type;
+    if (req.body.template_type) page.template_type = req.body.template_type;
     if (req.body.sections) {
       page.sections = req.body.sections.map((section, index) => ({
         ...section,
@@ -184,10 +187,19 @@ router.put('/:id', auth, [
         section_id: section.section_id || `section_${Date.now()}_${index}`
       }));
     }
-    if (req.body.theme_settings) {
-      page.theme_settings = { ...page.theme_settings, ...req.body.theme_settings };
+    if (req.body.theme_settings || req.body.themeSettings) {
+      page.theme_settings = { ...page.theme_settings, ...(req.body.theme_settings || req.body.themeSettings) };
     }
     if (req.body.seo) page.seo = { ...page.seo, ...req.body.seo };
+    
+    // ✅ CRITICAL: Set published flag from request body
+    if (typeof req.body.published === 'boolean') {
+      page.published = req.body.published;
+      if (req.body.published) {
+        page.published_at = new Date();
+        page.is_active = true; // Auto-activate when publishing
+      }
+    }
     
     page.performance.last_save_time = new Date();
     await page.save();
