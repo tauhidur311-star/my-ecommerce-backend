@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Page = require('../models/Page'); // Using existing Page model
 
@@ -116,6 +117,7 @@ router.get('/public/theme/:pageType', async (req, res) => {
       publishedAt: page.published_at
     };
     
+    console.log('📤 Sending theme data:', themeData);
     res.json(themeData);
     
   } catch (error) {
@@ -204,6 +206,112 @@ const broadcastThemeUpdate = (pageType, themeData) => {
     });
   }
 };
+
+// Add missing routes for complete theme system
+
+// Get all published pages
+router.get('/public/theme/pages', async (req, res) => {
+  try {
+    console.log('📥 Fetching all published pages');
+    
+    const publishedPages = await Page.find({ 
+      published: true 
+    }).select('page_name slug template_type published_at updatedAt');
+    
+    res.json({
+      success: true,
+      data: publishedPages.map(page => ({
+        name: page.page_name,
+        slug: page.slug,
+        type: page.template_type,
+        publishedAt: page.published_at,
+        lastUpdated: page.updatedAt
+      }))
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching published pages:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error', 
+      message: error.message 
+    });
+  }
+});
+
+// Save and publish page (from ThemeEditor)
+router.post('/api/pages/publish', async (req, res) => {
+  try {
+    console.log('📥 Publishing page:', req.body);
+    
+    const { pageType, sections, themeSettings, pageName } = req.body;
+    
+    // Find existing page or create new one
+    let page = await Page.findOne({ 
+      template_type: pageType,
+      user_id: req.user?.id || new mongoose.Types.ObjectId() // Fallback for now
+    });
+    
+    if (!page) {
+      page = new Page({
+        user_id: req.user?.id || new mongoose.Types.ObjectId(),
+        page_name: pageName || pageType,
+        slug: pageType === 'home' ? 'home' : pageName?.toLowerCase(),
+        template_type: pageType
+      });
+    }
+    
+    // Update page data
+    page.sections = sections.map((section, index) => ({
+      section_id: section.id || section._id,
+      type: section.type,
+      order: index,
+      visible: section.visible !== false,
+      settings: section.settings || {},
+      blocks: section.blocks ? section.blocks.map((block, blockIndex) => ({
+        block_id: block.id || block._id,
+        type: block.type,
+        content: block.content,
+        settings: block.settings || {},
+        order: blockIndex
+      })) : []
+    }));
+    
+    page.theme_settings = themeSettings || {};
+    page.published = true;
+    page.published_at = new Date();
+    page.is_active = true;
+    
+    await page.save();
+    
+    // Broadcast update to all connected clients
+    const broadcastData = {
+      pageType,
+      sections: page.sections,
+      theme_settings: page.theme_settings
+    };
+    
+    broadcastThemeUpdate(pageType, broadcastData);
+    
+    res.json({
+      success: true,
+      message: 'Page published successfully',
+      data: {
+        id: page._id,
+        pageType: page.template_type,
+        publishedAt: page.published_at
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error publishing page:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to publish page', 
+      message: error.message 
+    });
+  }
+});
 
 // Export router as default and broadcastThemeUpdate as named export
 module.exports = router;
