@@ -2,46 +2,67 @@ const Page = require('../models/Page');
 // const Template = require('../models/Template');
 // const Theme = require('../models/Theme');
 
-// Get published theme layout for public pages
+// ✅ ENHANCED: Get published theme layout for public pages
 const getPublishedTheme = async (req, res) => {
   try {
     const { pageType, slug } = req.params;
     
-    console.log('🌐 Fetching published theme for:', pageType, slug || '(no slug)');
+    console.log('🌐 Fetching published theme for:', { pageType, slug });
+    console.log('📝 Full request params:', req.params);
+    console.log('🔍 Request URL:', req.url);
     
-    // First try to find page created by ThemeEditor
-    const query = {
-      template_type: pageType,
-      published: true
-    };
+    // ✅ FLEXIBLE QUERY: Try multiple approaches to find the page
+    let query = { published: true };
     
-    if (slug) {
-      query.slug = slug;
+    // For /api/public/theme/home - pageType = 'home'
+    if (pageType) {
+      // Try both slug and template_type matching
+      query = {
+        $or: [
+          { slug: pageType, published: true },
+          { template_type: pageType, published: true },
+          { page_type: pageType, published: true }
+        ]
+      };
     }
     
+    // If custom route with slug parameter
+    if (slug) {
+      query = { slug: slug, published: true };
+    }
+    
+    console.log('🔍 MongoDB query:', JSON.stringify(query, null, 2));
+    
     const page = await Page.findOne(query)
-      .select('sections theme_settings page_name slug template_type published_at updatedAt');
+      .select('sections theme_settings page_name slug template_type page_type published_at updatedAt');
     
     if (page) {
       console.log('✅ Found ThemeEditor page:', page.page_name);
+      console.log('📊 Page details:', {
+        slug: page.slug,
+        template_type: page.template_type,
+        page_type: page.page_type,
+        published: page.published,
+        sections_count: page.sections?.length || 0
+      });
       
       // Convert Page model data to frontend format
       const themeData = {
         success: true,
         theme: {
-          type: page.template_type,
+          type: page.template_type || page.page_type,
           name: page.page_name,
           sections: page.sections.map(section => ({
-            id: section.section_id,
+            id: section.section_id || section.id,
             type: section.type,
             content: section.content || '',
-            visible: section.visible,
-            settings: section.settings,
+            visible: section.visible !== false,
+            settings: section.settings || {},
             blocks: section.blocks ? section.blocks.map(block => ({
-              id: block.block_id,
+              id: block.block_id || block.id,
               type: block.type,
-              content: block.content,
-              settings: block.settings
+              content: block.content || '',
+              settings: block.settings || {}
             })) : []
           })),
           theme_settings: page.theme_settings || {}
@@ -57,13 +78,35 @@ const getPublishedTheme = async (req, res) => {
         'Last-Modified': page.updatedAt.toUTCString()
       });
       
+      console.log('📤 Sending theme data with', themeData.theme.sections.length, 'sections');
       return res.json(themeData);
     }
+    
+    // ✅ ENHANCED DEBUGGING: Check what pages exist in database
+    console.log('❌ No published page found, checking database...');
+    
+    const allPages = await Page.find({}).select('page_name slug template_type page_type published').limit(10);
+    console.log('📚 Available pages in database:', allPages.map(p => ({
+      name: p.page_name,
+      slug: p.slug,
+      template_type: p.template_type,
+      page_type: p.page_type,
+      published: p.published
+    })));
+    
+    const publishedPages = await Page.find({ published: true }).select('page_name slug template_type page_type');
+    console.log('✅ Published pages found:', publishedPages.length);
     
     // No page found in ThemeEditor, return 404
     return res.status(404).json({
       success: false,
-      message: `No published ${pageType} page found`
+      message: `No published ${pageType} page found`,
+      debug: {
+        requestedPageType: pageType,
+        requestedSlug: slug,
+        availablePages: allPages.length,
+        publishedPages: publishedPages.length
+      }
     });
     
     // Set cache headers for published content
