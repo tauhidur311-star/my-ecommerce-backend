@@ -81,7 +81,7 @@ class StorageProvider {
       // Write file
       await fs.writeFile(filePath, buffer);
       
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      const baseUrl = process.env.MEDIA_BASE_URL || process.env.BASE_URL || 'http://localhost:5000';
       const url = `${baseUrl}/uploads/${filename}`;
       
       return {

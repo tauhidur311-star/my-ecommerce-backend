@@ -315,6 +315,11 @@ routes.forEach(({ path, module, cache }) => {
   }
 });
 
+// Serve static files from uploads directory
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+logger.debug('Static uploads directory served at /uploads');
+
 // Enhanced Authentication routes (with fallback)
 try {
   app.use('/api/auth/enhanced', require('./routes/enhancedAuth'));

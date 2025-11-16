@@ -104,12 +104,15 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
       console.error('📤 Upload failed:', uploadError);
       
       // Fallback: return a simple response without storage
+      const baseUrl = process.env.MEDIA_BASE_URL || process.env.BASE_URL || 'http://localhost:5000';
+      const fallbackUrl = `${baseUrl}/uploads/${storageKey}`;
+      
       return res.status(201).json({
         success: true,
         file: {
           name: file.originalname,
           filename: uniqueFilename,
-          url: `/uploads/${uniqueFilename}`, // Fallback URL
+          url: fallbackUrl,
           mimeType: file.mimetype,
           size: file.size
         }
