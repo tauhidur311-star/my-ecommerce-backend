@@ -267,12 +267,22 @@ router.post('/api/pages/publish', async (req, res) => {
       themeSettings: themeSettings ? 'PROVIDED' : 'MISSING'
     });
     
-    // ✅ ENHANCED: Find existing page using correct field names and user_id
-    const finalUserId = user_id || req.user?.id;
+    // ✅ FIX: Use correct user_id from req.user (backend logs show req.user.userId, not req.user.id)
+    if (!req.user || !req.user.userId) {
+      console.error('❌ Authentication failed - req.user missing or invalid:', req.user);
+      return res.status(401).json({ 
+        success: false,
+        error: 'Authentication required',
+        message: 'User must be authenticated to create/update pages'
+      });
+    }
+    
+    const finalUserId = req.user.userId; // ✅ BACKEND PROVIDES: Use server-side user_id, ignore frontend user_id
     
     console.log('🔍 Looking for existing page:', {
       template_type: page_type || template_type,
-      user_id: finalUserId ? 'SET' : 'MISSING'
+      authenticated_user_id: finalUserId,
+      req_user_data: req.user
     });
     
     let page = await Page.findOne({ 
@@ -283,29 +293,36 @@ router.post('/api/pages/publish', async (req, res) => {
     console.log('🔍 Existing page found:', page ? 'YES' : 'NO');
     
     if (!page) {
-      // ✅ VALIDATION: Ensure required fields are present
-      if (!finalUserId) {
-        console.error('❌ No user_id provided for new page creation');
-        return res.status(400).json({ 
+      console.log('➕ Creating new page with authenticated user:', {
+        user_id: finalUserId,
+        page_name: page_name || page_type,
+        slug: slug,
+        template_type: page_type || template_type
+      });
+      
+      // ✅ CREATE PAGE WITH AUTHENTICATED USER_ID
+      page = new Page({
+        user_id: finalUserId, // ✅ REQUIRED FIELD: Set from authenticated user
+        page_name: page_name || page_type,
+        slug: slug,
+        template_type: page_type || template_type
+      });
+    } else {
+      console.log('📝 Updating existing page:', {
+        existing_page_id: page._id,
+        current_user_id: page.user_id,
+        authenticated_user_id: finalUserId
+      });
+      
+      // ✅ SECURITY: Verify user owns the page they're updating
+      if (page.user_id.toString() !== finalUserId.toString()) {
+        console.error('❌ User trying to update page they don\'t own');
+        return res.status(403).json({
           success: false,
-          error: 'User authentication required',
-          message: 'user_id is required for page creation'
+          error: 'Access denied',
+          message: 'You can only edit pages you created'
         });
       }
-      
-      console.log('➕ Creating new page with:', {
-        user_id: finalUserId,
-        page_name: page_name || page_type,
-        slug: slug,
-        template_type: page_type || template_type
-      });
-      
-      page = new Page({
-        user_id: finalUserId,
-        page_name: page_name || page_type,
-        slug: slug,
-        template_type: page_type || template_type
-      });
     }
     
     // ✅ ENHANCED: Process sections with proper field mapping
