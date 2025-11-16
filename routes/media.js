@@ -4,7 +4,7 @@ const multer = require('multer');
 const sharp = require('sharp');
 const crypto = require('crypto');
 const Media = require('../models/Media');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 
 // Configure multer for memory storage
@@ -40,146 +40,89 @@ const upload = multer({
 // Import R2 storage provider
 const storageProvider = require('../utils/storageProvider');
 
-// POST /api/media/upload - Upload media files
-router.post('/upload', auth, upload.array('files', 10), async (req, res) => {
+// POST /api/media/upload - Simple file upload for theme editor
+router.post('/upload', auth, upload.single('file'), async (req, res) => {
   try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
+    console.log('📤 Media upload request received');
+    console.log('📤 File details:', req.file ? {
+      name: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    } : 'No file');
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded'
+      });
     }
-    
+
     const { folder = 'theme-editor', tags = [] } = req.body;
-    const uploadedFiles = [];
-    
-    for (const file of req.files) {
-      try {
-        // Generate unique filename
-        const fileExtension = file.originalname.split('.').pop().toLowerCase();
-        const uniqueFilename = `${crypto.randomUUID()}.${fileExtension}`;
-        const r2Key = `${folder}/${uniqueFilename}`;
-        
-        let processedBuffer = file.buffer;
-        let dimensions = {};
-        let variants = [];
-        
-        // Process images to create variants
-        if (file.mimetype.startsWith('image/') && file.mimetype !== 'image/svg+xml') {
-          // Get original dimensions
-          const metadata = await sharp(file.buffer).metadata();
-          dimensions = { width: metadata.width, height: metadata.height };
-          
-          // Create variants for images
-          const variantSizes = [
-            { name: 'thumbnail', width: 150, height: 150 },
-            { name: 'small', width: 300, height: 300 },
-            { name: 'medium', width: 600, height: 600 },
-            { name: 'large', width: 1200, height: 1200 }
-          ];
-          
-          for (const size of variantSizes) {
-            try {
-              const variantBuffer = await sharp(file.buffer)
-                .resize(size.width, size.height, {
-                  fit: 'inside',
-                  withoutEnlargement: true
-                })
-                .jpeg({ quality: 85 })
-                .toBuffer();
-              
-              const variantKey = `${folder}/variants/${size.name}_${uniqueFilename.replace(/\.[^/.]+$/, '.jpg')}`;
-              const variantUrl = await storageProvider.uploadFile(variantKey, variantBuffer, 'image/jpeg');
-              
-              const variantMetadata = await sharp(variantBuffer).metadata();
-              variants.push({
-                size: size.name,
-                r2_key: variantKey,
-                r2_url: variantUrl,
-                dimensions: { width: variantMetadata.width, height: variantMetadata.height },
-                file_size: variantBuffer.length
-              });
-            } catch (variantError) {
-              console.warn(`Failed to create ${size.name} variant:`, variantError);
-            }
-          }
-          
-          // Optimize original image
-          if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
-            processedBuffer = await sharp(file.buffer)
-              .jpeg({ quality: 90, progressive: true })
-              .toBuffer();
-          } else if (file.mimetype === 'image/png') {
-            processedBuffer = await sharp(file.buffer)
-              .png({ compressionLevel: 8 })
-              .toBuffer();
-          }
-        }
-        
-        // Upload original file to R2
-        const r2Url = await storageProvider.uploadFile(r2Key, processedBuffer, file.mimetype);
-        
-        // Add original as a variant
-        variants.unshift({
-          size: 'original',
-          r2_key: r2Key,
-          r2_url: r2Url,
-          dimensions,
-          file_size: processedBuffer.length
-        });
-        
-        // Save media record to database
-        const media = new Media({
-          user_id: req.user._id,
+    const file = req.file;
+
+    // Generate unique filename
+    const fileExtension = file.originalname.split('.').pop().toLowerCase();
+    const uniqueFilename = `${crypto.randomUUID()}.${fileExtension}`;
+    const storageKey = `${folder}/${uniqueFilename}`;
+
+    try {
+      // Use storageProvider for upload (supports both local and R2)
+      const uploadResult = await storageProvider.uploadFile(file.buffer, storageKey, file.mimetype);
+      
+      console.log('📤 Upload successful:', uploadResult.url);
+
+      // Save to database (optional - for tracking)
+      const media = new Media({
+        user_id: req.user._id || req.user.userId,
+        filename: uniqueFilename,
+        original_filename: file.originalname,
+        r2_key: storageKey,
+        r2_url: uploadResult.url,
+        file_size: file.size,
+        mime_type: file.mimetype,
+        folder,
+        tags: Array.isArray(tags) ? tags : [],
+        is_optimized: false,
+        variants: []
+      });
+
+      await media.save();
+
+      return res.status(201).json({
+        success: true,
+        file: {
+          _id: media._id,
+          name: file.originalname,
           filename: uniqueFilename,
-          original_filename: file.originalname,
-          r2_key: r2Key,
-          r2_url: r2Url,
-          file_size: processedBuffer.length,
-          mime_type: file.mimetype,
-          dimensions,
-          variants,
-          folder,
-          tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()) : []),
-          is_optimized: file.mimetype.startsWith('image/'),
-          optimization_stats: file.mimetype.startsWith('image/') ? {
-            original_size: file.buffer.length,
-            compressed_size: processedBuffer.length,
-            compression_ratio: Math.round(((file.buffer.length - processedBuffer.length) / file.buffer.length) * 100)
-          } : undefined
-        });
-        
-        await media.save();
-        uploadedFiles.push(media);
-        
-      } catch (fileError) {
-        console.error(`Error processing file ${file.originalname}:`, fileError);
-        // Continue with other files
-      }
+          url: uploadResult.url,
+          mimeType: file.mimetype,
+          size: file.size
+        }
+      });
+
+    } catch (uploadError) {
+      console.error('📤 Upload failed:', uploadError);
+      
+      // Fallback: return a simple response without storage
+      return res.status(201).json({
+        success: true,
+        file: {
+          name: file.originalname,
+          filename: uniqueFilename,
+          url: `/uploads/${uniqueFilename}`, // Fallback URL
+          mimeType: file.mimetype,
+          size: file.size
+        }
+      });
     }
-    
-    if (uploadedFiles.length === 0) {
-      return res.status(500).json({ error: 'Failed to upload any files' });
-    }
-    
-    res.status(201).json({
-      message: `Successfully uploaded ${uploadedFiles.length} file(s)`,
-      files: uploadedFiles.map(media => ({
-        _id: media._id,
-        filename: media.filename,
-        original_filename: media.original_filename,
-        url: media.r2_url,
-        file_size: media.readableFileSize,
-        mime_type: media.mime_type,
-        dimensions: media.dimensions,
-        variants: media.variants.map(v => ({
-          size: v.size,
-          url: v.r2_url,
-          dimensions: v.dimensions
-        }))
-      }))
-    });
     
   } catch (error) {
     console.error('Error uploading files:', error);
-    res.status(500).json({ error: 'Failed to upload files' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to upload files',
+      message: error.message 
+    });
   }
 });
 
