@@ -20,6 +20,35 @@ router.get('/theme/:pageType', getPublishedTheme);
 router.get('/theme/custom/:slug', getPublishedTheme);
 router.get('/pages', getPublishedPages);
 
+// ✅ TEMPORARY DEBUG: Inspect actual database content
+router.get('/debug/pages', async (req, res) => {
+  try {
+    const Page = require('../models/Page');
+    const pages = await Page.find().select('page_name slug template_type page_type published published_at sections').lean().limit(10);
+    
+    console.log('🔍 DEBUG: Found pages in database:', pages.length);
+    
+    res.json({
+      success: true,
+      count: pages.length,
+      pages: pages.map(page => ({
+        _id: page._id,
+        page_name: page.page_name,
+        slug: page.slug,
+        template_type: page.template_type,
+        page_type: page.page_type,
+        published: page.published,
+        published_at: page.published_at,
+        sections_count: page.sections?.length || 0,
+        has_sections: !!page.sections
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Debug endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Test endpoint to verify route is working
 router.get('/test-sse', (req, res) => {
   console.log('🧪 Test SSE endpoint accessed');
