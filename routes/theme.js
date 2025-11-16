@@ -239,67 +239,162 @@ router.get('/public/theme/pages', async (req, res) => {
   }
 });
 
-// Save and publish page (from ThemeEditor)
+// ✅ ENHANCED: Save and publish page (from ThemeEditor)
 router.post('/api/pages/publish', async (req, res) => {
   try {
-    console.log('📥 Publishing page:', req.body);
+    console.log('📥 Publishing page - Raw body received:');
+    console.log('📤 COMPLETE REQUEST BODY:', JSON.stringify(req.body, null, 2));
     
-    const { pageType, sections, themeSettings, pageName } = req.body;
+    // ✅ ENHANCED: Extract all fields that frontend sends
+    const { 
+      page_name, 
+      page_type, 
+      slug, 
+      template_type, 
+      sections, 
+      themeSettings, 
+      user_id,
+      published = true 
+    } = req.body;
     
-    // Find existing page or create new one
-    let page = await Page.findOne({ 
-      template_type: pageType,
-      user_id: req.user?.id || new mongoose.Types.ObjectId() // Fallback for now
+    console.log('📋 Extracted fields:', {
+      page_name,
+      page_type, 
+      slug,
+      template_type,
+      user_id: user_id ? 'PROVIDED' : 'MISSING',
+      sections_count: sections?.length || 0,
+      themeSettings: themeSettings ? 'PROVIDED' : 'MISSING'
     });
     
+    // ✅ ENHANCED: Find existing page using correct field names and user_id
+    const finalUserId = user_id || req.user?.id;
+    
+    console.log('🔍 Looking for existing page:', {
+      template_type: page_type || template_type,
+      user_id: finalUserId ? 'SET' : 'MISSING'
+    });
+    
+    let page = await Page.findOne({ 
+      template_type: page_type || template_type,
+      ...(finalUserId && { user_id: finalUserId })
+    });
+    
+    console.log('🔍 Existing page found:', page ? 'YES' : 'NO');
+    
     if (!page) {
+      // ✅ VALIDATION: Ensure required fields are present
+      if (!finalUserId) {
+        console.error('❌ No user_id provided for new page creation');
+        return res.status(400).json({ 
+          success: false,
+          error: 'User authentication required',
+          message: 'user_id is required for page creation'
+        });
+      }
+      
+      console.log('➕ Creating new page with:', {
+        user_id: finalUserId,
+        page_name: page_name || page_type,
+        slug: slug,
+        template_type: page_type || template_type
+      });
+      
       page = new Page({
-        user_id: req.user?.id || new mongoose.Types.ObjectId(),
-        page_name: pageName || pageType,
-        slug: pageType === 'home' ? 'home' : pageName?.toLowerCase(),
-        template_type: pageType
+        user_id: finalUserId,
+        page_name: page_name || page_type,
+        slug: slug,
+        template_type: page_type || template_type
       });
     }
     
-    // Update page data
-    page.sections = sections.map((section, index) => ({
-      section_id: section.id || section._id,
-      type: section.type,
-      order: index,
-      visible: section.visible !== false,
-      settings: section.settings || {},
-      blocks: section.blocks ? section.blocks.map((block, blockIndex) => ({
-        block_id: block.id || block._id,
-        type: block.type,
-        content: block.content,
-        settings: block.settings || {},
-        order: blockIndex
-      })) : []
-    }));
+    // ✅ ENHANCED: Process sections with proper field mapping
+    console.log('🔧 Processing sections data...');
     
+    page.sections = sections.map((section, index) => {
+      console.log(`📋 Processing section ${index}:`, {
+        has_section_id: !!section.section_id,
+        has_id: !!section.id,
+        type: section.type,
+        blocks_count: section.blocks?.length || 0
+      });
+      
+      const processedSection = {
+        section_id: section.section_id || section.id, // ✅ Use section_id from frontend
+        type: section.type,
+        content: section.content || '',
+        order: index,
+        visible: section.visible !== false,
+        settings: section.settings || {},
+        blocks: section.blocks ? section.blocks.map((block, blockIndex) => {
+          console.log(`  🔧 Processing block ${blockIndex}:`, {
+            has_block_id: !!block.block_id,
+            has_id: !!block.id,
+            type: block.type
+          });
+          
+          return {
+            block_id: block.block_id || block.id, // ✅ Use block_id from frontend (required field)
+            type: block.type,
+            content: block.content || '',
+            settings: block.settings || {},
+            order: blockIndex
+          };
+        }) : []
+      };
+      
+      console.log(`✅ Section ${index} processed:`, {
+        section_id: processedSection.section_id,
+        type: processedSection.type,
+        blocks_count: processedSection.blocks.length,
+        all_blocks_have_block_id: processedSection.blocks.every(b => b.block_id)
+      });
+      
+      return processedSection;
+    });
+    
+    // ✅ ENHANCED: Update remaining page fields
+    page.page_name = page_name || page.page_name;
+    page.slug = slug || page.slug;
     page.theme_settings = themeSettings || {};
-    page.published = true;
+    page.published = published;
     page.published_at = new Date();
     page.is_active = true;
     
+    console.log('💾 Saving page to database...');
+    console.log('📊 Final page data before save:', {
+      user_id: page.user_id,
+      page_name: page.page_name,
+      slug: page.slug,
+      template_type: page.template_type,
+      sections_count: page.sections.length,
+      total_blocks: page.sections.reduce((total, s) => total + s.blocks.length, 0)
+    });
+    
     await page.save();
+    console.log('✅ Page saved successfully to database');
     
     // Broadcast update to all connected clients
     const broadcastData = {
-      pageType,
+      pageType: page_type || template_type,
       sections: page.sections,
       theme_settings: page.theme_settings
     };
     
-    broadcastThemeUpdate(pageType, broadcastData);
+    broadcastThemeUpdate(page_type || template_type, broadcastData);
+    console.log('📡 Broadcast sent to connected clients');
     
     res.json({
       success: true,
       message: 'Page published successfully',
       data: {
         id: page._id,
+        page_name: page.page_name,
+        slug: page.slug,
         pageType: page.template_type,
-        publishedAt: page.published_at
+        publishedAt: page.published_at,
+        sectionsCount: page.sections.length,
+        blocksCount: page.sections.reduce((total, s) => total + s.blocks.length, 0)
       }
     });
     
