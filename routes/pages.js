@@ -366,4 +366,105 @@ router.post('/:id/duplicate', auth, async (req, res) => {
   }
 });
 
+// ✅ NEW: POST /api/pages/publish - Publish route that ThemeEditor expects
+router.post('/publish', auth, async (req, res) => {
+  try {
+    console.log('📤 POST /api/pages/publish called with payload:', JSON.stringify(req.body, null, 2));
+    
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Authentication required',
+        message: 'User must be authenticated to publish pages'
+      });
+    }
+
+    const { 
+      page_name, 
+      page_type, 
+      slug, 
+      template_type, 
+      sections, 
+      themeSettings 
+    } = req.body;
+
+    if (!slug && !page_type) {
+      return res.status(400).json({
+        success: false,
+        error: 'Bad Request',
+        message: 'slug or page_type is required to publish',
+      });
+    }
+
+    // Find existing page by multiple fields (flexible matching)
+    const searchKey = slug || page_type;
+    console.log('🔍 Looking for existing page with key:', searchKey);
+    
+    let page = await Page.findOne({
+      $or: [
+        { slug: searchKey, user_id: req.user.userId },
+        { page_type: searchKey, user_id: req.user.userId },
+        { template_type: searchKey, user_id: req.user.userId }
+      ]
+    });
+
+    if (!page) {
+      // Create new page if none exists
+      console.log('➕ Creating new page for:', searchKey);
+      page = new Page({
+        user_id: req.user.userId,
+        page_name: page_name || searchKey,
+        slug: slug || searchKey,
+        page_type: page_type || searchKey,
+        template_type: template_type || searchKey
+      });
+    } else {
+      console.log('📝 Updating existing page:', page._id);
+    }
+
+    // Update all fields from payload
+    page.page_name = page_name || page.page_name;
+    page.slug = slug || page.slug;
+    page.page_type = page_type || page.page_type;
+    page.template_type = template_type || page.template_type;
+    page.sections = sections || page.sections;
+    page.theme_settings = themeSettings || page.theme_settings;
+    
+    // ✅ CRITICAL: Always set published flag to true
+    page.published = true;
+    page.published_at = new Date();
+    page.is_active = true;
+
+    console.log('💾 Saving page with published: true');
+    await page.save();
+
+    console.log('✅ Page published successfully:', {
+      id: page._id,
+      slug: page.slug,
+      published: page.published,
+      sections_count: page.sections?.length || 0
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Page published successfully',
+      data: {
+        id: page._id,
+        page_name: page.page_name,
+        slug: page.slug,
+        published: page.published,
+        published_at: page.published_at
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error publishing page:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server Error',
+      message: 'Failed to publish page',
+      details: error.message
+    });
+  }
+});
+
 module.exports = router;
