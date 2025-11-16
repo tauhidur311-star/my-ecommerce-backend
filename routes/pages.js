@@ -20,7 +20,7 @@ router.get('/', auth, async (req, res) => {
       search 
     } = req.query;
     
-    const query = { user_id: req.user._id };
+    const query = { user_id: req.user.userId }; // ✅ FIXED: Use userId from auth middleware
     
     if (template_type) query.template_type = template_type;
     if (published !== undefined) query.published = published === 'true';
@@ -81,7 +81,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const page = await Page.findOne({
       _id: req.params.id,
-      user_id: req.user._id
+      user_id: req.user.userId // ✅ FIXED: Use userId from auth middleware
     }).populate('user_id', 'name email');
     
     if (!page) {
@@ -118,8 +118,9 @@ router.post('/', auth, [
       return res.status(400).json({ error: 'Slug already exists' });
     }
     
+    // ✅ FIX: Use req.user.userId (not req.user._id) - matches auth middleware
     const page = new Page({
-      user_id: req.user._id,
+      user_id: req.user.userId, // ✅ FIXED: Use userId property from auth middleware
       page_name,
       slug: finalSlug,
       template_type,
@@ -135,7 +136,7 @@ router.post('/', auth, [
     // Create initial revision
     await Revision.createRevision(
       page._id,
-      req.user._id,
+      req.user.userId, // ✅ FIXED: Use userId from auth middleware
       page.sections,
       page.theme_settings,
       'Initial page creation',
@@ -163,7 +164,7 @@ router.put('/:id', auth, [
     
     const page = await Page.findOne({
       _id: req.params.id,
-      user_id: req.user._id
+      user_id: req.user.userId // ✅ FIXED: Use userId from auth middleware
     });
     
     if (!page) {
