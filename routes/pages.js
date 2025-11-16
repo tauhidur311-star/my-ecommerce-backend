@@ -192,11 +192,11 @@ router.put('/:id', auth, [
     page.performance.last_save_time = new Date();
     await page.save();
     
-    // Create revision if significant changes
+    // ✅ FIX: Create revision with correct user_id property
     if (req.body.sections || req.body.theme_settings) {
       await Revision.createRevision(
         page._id,
-        req.user._id,
+        req.user.userId, // ✅ FIXED: Use userId from auth middleware
         page.sections,
         page.theme_settings,
         req.body.change_description || 'Page updated',
@@ -214,12 +214,12 @@ router.put('/:id', auth, [
   }
 });
 
-// PUT /api/pages/:id/publish - Publish page
+// ✅ FIXED: Publish page with correct user_id property
 router.put('/:id/publish', auth, async (req, res) => {
   try {
     const page = await Page.findOne({
       _id: req.params.id,
-      user_id: req.user._id
+      user_id: req.user.userId // ✅ FIXED: Use userId from auth middleware
     });
     
     if (!page) {
@@ -231,7 +231,7 @@ router.put('/:id/publish', auth, async (req, res) => {
     // If setting as active, deactivate other pages
     if (set_active) {
       await Page.updateMany(
-        { user_id: req.user._id },
+        { user_id: req.user.userId }, // ✅ FIXED: Use userId from auth middleware
         { is_active: false }
       );
       page.is_active = true;
@@ -263,7 +263,7 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const page = await Page.findOne({
       _id: req.params.id,
-      user_id: req.user._id
+      user_id: req.user.userId // ✅ FIXED: Use userId from auth middleware
     });
     
     if (!page) {
@@ -301,7 +301,7 @@ router.post('/:id/duplicate', auth, async (req, res) => {
   try {
     const originalPage = await Page.findOne({
       _id: req.params.id,
-      user_id: req.user._id
+      user_id: req.user.userId // ✅ FIXED: Use userId from auth middleware
     });
     
     if (!originalPage) {
@@ -321,7 +321,7 @@ router.post('/:id/duplicate', auth, async (req, res) => {
     }
     
     const duplicatedPage = new Page({
-      user_id: req.user._id,
+      user_id: req.user.userId, // ✅ FIXED: Use userId from auth middleware
       page_name: newPageName,
       slug: finalSlug,
       template_type: originalPage.template_type,
@@ -337,10 +337,10 @@ router.post('/:id/duplicate', auth, async (req, res) => {
     
     await duplicatedPage.save();
     
-    // Create initial revision
+    // ✅ FIXED: Create initial revision with correct user_id
     await Revision.createRevision(
       duplicatedPage._id,
-      req.user._id,
+      req.user.userId, // ✅ FIXED: Use userId from auth middleware
       duplicatedPage.sections,
       duplicatedPage.theme_settings,
       `Duplicated from ${originalPage.page_name}`,

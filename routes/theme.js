@@ -370,11 +370,11 @@ router.post('/api/pages/publish', async (req, res) => {
       return processedSection;
     });
     
-    // ✅ ENHANCED: Update remaining page fields
+    // ✅ ENHANCED: Update remaining page fields and auto-publish
     page.page_name = page_name || page.page_name;
     page.slug = slug || page.slug;
     page.theme_settings = themeSettings || {};
-    page.published = published;
+    page.published = true; // ✅ AUTO-PUBLISH: Always publish from theme editor
     page.published_at = new Date();
     page.is_active = true;
     
